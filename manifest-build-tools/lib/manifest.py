@@ -250,4 +250,151 @@ class Manifest(object):
             raise KeyError(error)
 
 
+    @staticmethod
+    def check_commit_changed(repo, repo_url, branch, commit):
+        """
+        Check whether the repository is changed based on its url, branch ,commit-id and arguments repo_url, branch, commit
+        :param repo: an repository entry of member _repositories or _downstream_jobs
+        :param repo_url: the url of the repository
+        :param branch: the branch of the repository
+        :param commit: the commit id of the repository
+        :return: True when the commit-id is different with argument commit
+                 and the url and branch is the same with the arguments repo_url, branch;
+                 otherwise, False
+        """
 
+        if (repo['repository'] == repo_url):
+            # If repo has "branch", compare "commit-id" in repo with the argument commit
+            # only when "branch" is the same with argument branch.
+
+            if 'branch' in repo:
+                sliced_repo_branch = repo['branch'].split("/")[-1]
+                sliced_branch = branch.split("/")[-1]
+                if (repo['branch'] == branch or
+                    repo['branch'] == sliced_branch or
+                    sliced_repo_branch == sliced_branch):
+
+                    if 'commit-id' in repo:
+                        print "checking the commit-id for {0} with branch {1} from {2} to {3}".format\
+                                (repo_url, branch, repo['commit-id'], commit)
+
+                        if repo['commit-id'] != commit:
+                            print "   commit-id updated!"
+                            return True
+                        else:
+                            print "   commit-id unchanged"
+                            return False
+                    else:
+                        print "add commit-id{0} for {1} with branch {2} ".format\
+                              (commit, repo_url, branch)
+                        return True
+            # If repo doesn't have "branch", compare "commit-id" in repo with argument commit
+            # Exits with 1 if repo doesn't have "commit-id"
+            else:
+                if 'commit-id' not in repo:
+                    raise KeyError("Neither commit-id nor branch is set for repository {0}".format(repo['repository']))
+                else:
+                    if repo['commit-id'] != commit:
+                        print "   commit-id updated!"
+                        return True
+                    else:
+                        print "   commit-id unchanged"
+                        return False
+        return False
+
+    @staticmethod
+    def update_downstream_jobs(downstream_jobs, repo_url, branch, commit):
+        """
+        update the instance of the class based on member:
+        _downstream_jobs and provided arguments.
+
+        :param downstream_jobs: the entry downstream_jobs
+        :param repo_url: the url of the repository
+        :param branch: the branch of the repository
+        :param commit: the commit id of the repository
+        :return: True if any job in downstream_jobs is updated
+                 False if none of jobs in downstream_jobs is updated
+        """
+        updated = False
+        for job in downstream_jobs:
+            if Manifest.check_commit_changed(job, repo_url, branch, commit):
+                job['commit-id'] = commit
+                updated = True
+            if 'downstream-jobs' in job:
+                nested_downstream_jobs = job['downstream-jobs']
+                if Manifest.update_downstream_jobs(nested_downstream_jobs, repo_url, branch, commit):
+                    updated = True
+        return updated
+
+    @staticmethod
+    def update_repositories(repositories, repo_url, branch, commit):
+        """
+        update the instance of the class based on member:
+        _repositories and provided arguments.
+
+        :param repositories: the entry repositories
+        :param repo_url: the url of the repository
+        :param branch: the branch of the repository
+        :param commit: the commit id of the repository
+        :return:
+        """
+        updated = False
+        for repo in repositories:
+            if Manifest.check_commit_changed(repo, repo_url, branch, commit):
+                repo['commit-id'] = commit
+                updated = True
+        return updated
+
+    def update_manifest(self, repo_url, branch, commit):
+        """
+        update the instance of the class based on members
+         _repositories , _downstream_jobs and provided arguments.
+        :param repo_url: the url of the repository
+        :param branch: the branch of the repository
+        :param commit: the commit id of the repository
+        :return:
+        """
+
+        print "start updating  manifest file {0}".format(self._name)
+        if self.update_repositories(self._repositories, repo_url, branch, commit):
+            self._changed = True
+
+        if self.update_downstream_jobs(self._downstream_jobs, repo_url, branch, commit):
+            self._changed = True
+
+    def write_manifest_file(self, repo_dir, commit_message, file_path=None, dryrun=False):
+        """
+        Add, commit, and push the manifest changes to the manifest repo.
+        :param repo_dir: String, The directory of the repository
+        :param commit_message: String, The commit message for command "git commit"
+        :param file_path: String, The path to the temporary file.
+                          If it is not set, the default value is self._file_path where manifest come from
+        :param dry_run: If true, would not push changes
+        :return:
+        """
+        if file_path is None:
+            file_path = self._file_path
+
+        with open(file_path, 'w') as fp:
+            json.dump(self._manifest, fp, indent=4, sort_keys=True)
+
+        status_code, status_out, status_error = self.gitbit.run(['status'], repo_dir)
+        add_code, add_out, add_error = self.gitbit.run(['add', '-u'], repo_dir)
+
+        if add_code != 0:
+            raise RuntimeError('Unable to add files for commiting.\n{0}\n{1}\n{2}}'.format\
+                                 (add_code, add_out, add_error))
+
+
+        commit_code, commit_out, commit_error = self.gitbit.run(['commit', '-m', commit_message], repo_dir)
+        if commit_code != 0:
+            raise RuntimeError('Unable to commit changes for pushing.\n{0}\n{1}\n{2}'.format\
+                                 (commit_code, commit_out, commit_error))
+
+        if not dryrun:
+            push_code, push_out, push_error = self.gitbit.run(['push'], repo_dir)
+            if push_code !=0:
+                raise RuntimeError('Unable to push changes.\n{0}\n{1}\n{2}'.format(push_code, push_out, push_error))
+        else:
+            print "Would push changes here if not for dry run"
+        return
