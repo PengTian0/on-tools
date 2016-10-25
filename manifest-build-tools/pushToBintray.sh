@@ -6,7 +6,6 @@ set -e
 set -x
 
 BASEDIR=$(dirname "$0")
-
 BINTRAY_CONFIG_FILE=$BASEDIR/bintray.conf
 
 if [ ! -f "$BINTRAY_CONFIG_FILE" ]; then
@@ -30,8 +29,8 @@ main() {
   fi
 
   if (check_version_exists); then
-    echo "The version ${BINTRAY_PCK_VERSION} does not exist. Exiting now..."
-    exit 1
+    echo "The version ${BINTRAY_PCK_VERSION} does not exist. Creating now..."
+    create_version
   fi
   deploy_package
 }
@@ -54,6 +53,21 @@ check_version_exists() {
       return 1
   else
       return 0
+  fi
+}
+
+create_version() {
+  echo "Creating version ${BINTRAY_PCK_VERSION}..."
+  data="{
+  \"name\": \"${BINTRAY_PCK_VERSION}\",
+  \"desc\": \"This version ...\"
+  }"
+
+  if [ $(${CURL} --write-out %{http_code} --silent --output /dev/null -X POST ${API}/packages/${SUBJECT}/${BINTRAY_REPO}/${BINTRAY_PCK}/versions --data "${data}") -eq "201" ];then
+    echo "Succeed to create version ${BINTRAY_PCK_VERSION}."
+  else
+    echo "Failed to create version ${BINTRAY_PCK_VERSION}."
+    exit 1
   fi
 }
 
