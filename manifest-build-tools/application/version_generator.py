@@ -8,7 +8,17 @@ The script compute the version of a package, just like:
 usage:
 ./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/version_generator.py 
 --repo-dir /home/onrack/rackhd/release/rackhd-repos/PengTian0/b/b/on-http
+--manifest-repo-dir /home/onrack/rackhd/release/rackhd-repos/PengTian0/b/build-manifests
+--is-official-release
+--parameter-file version.txt
 
+The required parameters: 
+repo-dir
+manifest-repo-dir
+
+The optional parameters:
+is-official-release (default value is false)
+parameter-file (default value is release_version)
 """
 import os
 import sys
