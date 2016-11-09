@@ -395,4 +395,71 @@ class RepoOperator(object):
             self.git.run(["tag", "-a", tag_name, "-m", "\"Creating new tag\""], repo_dir)
             self.git.run(["push", "origin", "--tags"], repo_dir)
 
+    def create_repo_branch(self, repo_url, repo_dir, branch_name):
+        """
+        Creates branch on the repo
+        :param repo_url: the url of the repository
+        :param repo_dir: the directory of the repository
+        :param branch_name: the branch name to be set
+        :return: None
+        """
+        # See if that branch exists for the repo
+        cmd_returncode, cmd_value, cmd_error  = self.git.run(["ls-remote", "--exit-code", "--heads", repo_url, branch_name], repo_dir)
+
+        # Raise RuntimeError if branch already exists, otherwise create it
+        if cmd_returncode == 0 and cmd_value != '':
+            raise RuntimeError("Error: Branch {0} already exists - exiting now...".format(cmd_value))
+        else:
+            print "Creating branch {0} for repo {1}".format(branch_name, repo_url)
+            branch_code, branch_out, branch_error = self.git.run(["branch", branch_name], repo_dir)
+            if branch_code != 0:
+                print branch_out
+                raise RuntimeError("Error: Failed to create local branch {0} with error: {1}.".format(branch_name, branch_error))
+                
+            publish_code, publish_out, publish_error = self.git.run(["push", "-u", "origin", branch_name], repo_dir)
+            if publish_code != 0:
+                print publish_out
+                raise RuntimeError("Error: Failed to publish local branch {0} with error: {1}".format(branch_name, publish_error))
+
+    def checkout_repo_branch(self, repo_dir, branch_name):
+        """
+        Check out to specify branch on the repo
+        :param repo_dir: the directory of the repository
+        :param branch_name: the branch name to be checked
+        :return: None
+        """
+        cmd_returncode, cmd_value, cmd_error  = self.git.run(["checkout", branch_name], repo_dir)
+
+        if cmd_returncode != 0:
+            raise RuntimeError("Error: Failed to checkout branch {0}".format(cmd_value))
+
+    def push_repo_changes(self, repo_dir, commit_message):
+        """
+        publish changes of reposioty
+        :param repo_dir: the directory of the repository
+        :param commit_message: the message to be added to commit
+        :return: None
+        """
+
+        status_code, status_out, status_error = self.git.run(['status'], repo_dir)
+        if status_code == 0:
+            if "nothing to commit, working directory clean" in status_out:
+                print status_out
+                return
+
+        add_code, add_out, add_error = self.git.run(['add', '-u'], repo_dir)
+
+        if add_code != 0:
+            raise RuntimeError('Unable to add files for commiting.\n{0}\n{1}\n{2}'.format\
+                                 (add_code, add_out, add_error))
+
+        commit_code, commit_out, commit_error = self.git.run(['commit', '-m', commit_message], repo_dir)
+        if commit_code != 0:
+            raise RuntimeError('Unable to commit changes for pushing.\n{0}\n{1}\n{2}'.format\
+                                 (commit_code, commit_out, commit_error))
+
+        push_code, push_out, push_error = self.git.run(['push'], repo_dir)
+        if push_code !=0:
+            raise RuntimeError('Unable to push changes.\n{0}\n{1}\n{2}'.format(push_code, push_out, push_error))
+        return
 
