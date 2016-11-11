@@ -447,7 +447,7 @@ class RepoOperator(object):
                 print status_out
                 return
 
-        add_code, add_out, add_error = self.git.run(['add', '-u'], repo_dir)
+        add_code, add_out, add_error = self.git.run(['add', '-A'], repo_dir)
 
         if add_code != 0:
             raise RuntimeError('Unable to add files for commiting.\n{0}\n{1}\n{2}'.format\
