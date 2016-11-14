@@ -69,10 +69,16 @@ class ManifestGenerator(object):
         """
         repositories = self._manifest.get_repositories()
         downstream_jobs = self._manifest.get_downstream_jobs()
+        build_name = os.path.basename(self._dest_manifest_file)
+
         for repo in repositories:
             repo["branch"] = self._new_branch
+
         for job in downstream_jobs:
             job["branch"] = self._new_branch
+
+        self._manifest.set_build_name(build_name)
+
         self._manifest.validate_manifest()
         
     def generate_manifest(self):
