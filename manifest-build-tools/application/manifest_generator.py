@@ -85,7 +85,7 @@ class ManifestGenerator(object):
         """
         generate a new manifest
         """
-        dest_dir = os.path.dirname(self._dest_manifest_file)
+        dest_dir = os.path.dirname(os.path.abspath(self._dest_manifest_file))
         dest_file = os.path.basename(self._dest_manifest_file)
         for filename in os.listdir(dest_dir):
             if filename == dest_file and self._force == False:
@@ -143,7 +143,7 @@ def main():
             if args.git_credential and args.publish_branch:
                 repo_operator = RepoOperator(args.git_credential)
                 commit_message = "add a manifest file for new branch {0}".format(args.branch)
-                repo_dir = os.path.dirname(args.dest_manifest)
+                repo_dir = os.path.dirname(os.path.abspath(args.dest_manifest))
                 repo_operator.checkout_repo_branch(repo_dir, args.publish_branch)
                 generator.generate_manifest()
                 repo_operator.push_repo_changes(repo_dir, commit_message)
