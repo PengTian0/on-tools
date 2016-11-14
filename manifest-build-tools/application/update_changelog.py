@@ -18,6 +18,9 @@ git-credential: url, credentials pair for the access to github repos.
 
 The optional parameters:
 message (default value is "new release" + version )
+publish: If true, the updated changlog will be push to github.
+git-credential: url, credentials pair for the access to github repos.
+                If publish is true, the parameter is required.
 """
 import os
 import sys
@@ -87,10 +90,14 @@ def parse_command_line(args):
     parser.add_argument("--message",
                         help="the message which is going to be added to changelog",
                         action="store")
+
+    parser.add_argument("--publish",
+                        help="Push the new manifest to github",
+                        action='store_true')
     parser.add_argument("--git-credential",
-                        required=True,
                         help="Git credential for CI services",
                         action="append")
+
     parsed_args = parser.parse_args(args)
     return parsed_args
 
@@ -108,7 +115,12 @@ def link_dir(src, dest, dir):
 def main():
     # parse arguments
     args = parse_command_line(sys.argv[1:])
-    repo_operator = RepoOperator(args.git_credential)
+    if args.publish:
+        if args.git_credential:
+            repo_operator = RepoOperator(args.git_credential)
+        else:
+            print "If you want to publish the updated changelog, please specify the git-credential. Exiting now..."
+            sys.exit(1)
 
     if os.path.isdir(args.build_dir):
         for filename in os.listdir(args.build_dir):
@@ -121,8 +133,10 @@ def main():
                 if updater.update_changelog(message = args.message):
                     if filename == "on-http":
                         os.remove(os.path.join(repo_dir, "debian"))
-                    commit_message = "update changelog for new release {0}".format(args.version)
-                    repo_operator.push_repo_changes(repo_dir, commit_message)
+                    if args.publish:
+                        commit_message = "update changelog for new release {0}".format(args.version)
+                        repo_operator.push_repo_changes(repo_dir, commit_message)
+                            
             except Exception,e:
                 print "Failed to update changelog of {0} due to {1}".format(filename, e)
                 sys.exit(1)

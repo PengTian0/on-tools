@@ -14,7 +14,7 @@ usage:
 --git-credential https://github.com,GITHUB
 
 The required parameters: 
-source-manifest: The new manifest is generated according to this manifest
+source-manifest: The path of manifest. The new manifest is generated according to it.
 dest-manifest: The path of the new manifest
 branch: The new branch name
 
@@ -29,6 +29,7 @@ import sys
 import argparse
 import subprocess
 import json
+import traceback
 
 from RepositoryOperator import RepoOperator
 from manifest import Manifest
@@ -107,13 +108,15 @@ def parse_command_line(args):
                         required=True,
                         help="The branch of repositories in new manifest",
                         action="store")
-
     parser.add_argument("--force",
                         help="use destination manifest file, even if it exists",
                         action="store_true")
     parser.add_argument("--publish",
                         help="Push the new manifest to github",
                         action='store_true')
+    parser.add_argument("--publish-branch",
+                        help="Push the new manifest to branch",
+                        action='store')
     parser.add_argument("--git-credential",
                         help="Git credentials for CI services",
                         action="append")
@@ -129,19 +132,22 @@ def main():
         generator.update_manifest()
         if args.force:
             generator.set_force(args.force)
-
-        generator.generate_manifest()
         
         if args.publish:
-            if args.git_credential:
+            if args.git_credential and args.publish_branch:
                 repo_operator = RepoOperator(args.git_credential)
                 commit_message = "add a manifest file for new branch {0}".format(args.branch)
                 repo_dir = os.path.dirname(args.dest_manifest)
+                repo_operator.checkout_repo_branch(repo_dir, args.publish_branch)
+                generator.generate_manifest()
                 repo_operator.push_repo_changes(repo_dir, commit_message)
             else:
-                print "Please specify the git_credential if you want to push the new manifest"
+                print "Please specify the git-credential and publish-branch if you want to push the new manifest"
                 sys.exit(1)
+        else:
+            generator.generate_manifest()
     except Exception, e:
+        traceback.print_exc()
         print "Failed to generate new manifest for {0} due to \n{1}\nExiting now".format(args.branch, e)
         sys.exit(1)
 
