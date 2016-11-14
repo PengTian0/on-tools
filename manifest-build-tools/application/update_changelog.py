@@ -5,9 +5,10 @@
 The script update changelog under debian
 
 usage:
-./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/update_changelog.py 
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/update_changelog.py \
 --build-dir d/ \
 --version 1.2.6 \
+--publish \
 --git-credential https://github.com,GITHUB \
 --message "new branch 1.2.6"
 
@@ -29,18 +30,6 @@ import datetime
 import subprocess
 from RepositoryOperator import RepoOperator
 from common import *
-
-def link_dir(src, dest, dir):
-    cmd_args = ["ln", "-s", src, dest]
-    proc = subprocess.Popen(cmd_args,
-                            cwd=dir,
-                            stderr=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            shell=False)
-    (out, err) = proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError("Failed to sync {0} to {1} due to {2}".format(src, dest, err))
-
 
 class ChangelogUpdater(object):
     def __init__(self, repo_dir, version):
@@ -99,12 +88,13 @@ class ChangelogUpdater(object):
                                 stdout=subprocess.PIPE,
                                 shell=False)
         (out, err) = proc.communicate()
+
+        if repo_name == "on-http":
+            os.remove(os.path.join(self._repo_dir, "debian"))
+
         if proc.returncode != 0:
             raise RuntimeError("Failed to add an entry for {0} in debian/changelog due to {1}".format(self._version, err))
 
-        if repo_name == "on-http":
-            os.remove(os.path.join(repo_dir, "debian"))
-    
         return True
 
 def parse_command_line(args):
@@ -135,17 +125,6 @@ def parse_command_line(args):
     parsed_args = parser.parse_args(args)
     return parsed_args
 
-def link_dir(src, dest, dir):
-    cmd_args = ["ln", "-s", src, dest]
-    proc = subprocess.Popen(cmd_args,
-                            cwd=dir,
-                            stderr=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            shell=False)
-    (out, err) = proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError("Failed to sync {0} to {1} due to {2}".format(src, dest, err))
-
 def main():
     # parse arguments
     args = parse_command_line(sys.argv[1:])
@@ -165,11 +144,9 @@ def main():
                     if args.publish:
                         commit_message = "update changelog for new release {0}".format(args.version)
                         repo_operator.push_repo_changes(repo_dir, commit_message)
-                            
             except Exception,e:
                 print "Failed to update changelog of {0} due to {1}".format(filename, e)
                 sys.exit(1)
-
     else:
         print "The argument build-dir must be a directory"
         sys.exit(1)

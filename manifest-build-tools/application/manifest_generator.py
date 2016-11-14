@@ -5,12 +5,12 @@
 The script generate a new manifest for a new branch according to another manifest
 
 usage:
-./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/manifest_generator.py 
---source-manifest build-manifest/rackhd-devel
---dest-manifest build-manifest/rackhd-release-1.2.5
---branch branch/release-1.2.5
---force
---publish
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/manifest_generator.py \
+--source-manifest build-manifest/rackhd-devel \
+--dest-manifest build-manifest/rackhd-release-1.2.5 \
+--branch branch/release-1.2.5 \
+--force \
+--publish \
 --git-credential https://github.com,GITHUB
 
 The required parameters: 
@@ -37,8 +37,13 @@ from manifest import Manifest
 class ManifestGenerator(object):
     def __init__(self, source, dest, branch):
         """
-        :return:
- 
+        Generate a new manifest for new branch according to a source manifest file.
+
+        __source_manifest_file: the path of source manifest
+        __dest_manifest_file: the path of new manifest
+        __new_branch: the new branch name
+        __force: overwrite the destination manifest file if it exists.
+        :return: None
         """
         self._source_manifest_file = source
         self._dest_manifest_file = dest
@@ -66,6 +71,7 @@ class ManifestGenerator(object):
     def update_manifest(self):
         """
         update the manifest with new branch
+        :return: None
         """
         repositories = self._manifest.get_repositories()
         downstream_jobs = self._manifest.get_downstream_jobs()
@@ -84,8 +90,9 @@ class ManifestGenerator(object):
     def generate_manifest(self):
         """
         generate a new manifest
+        :return: None
         """
-        dest_dir = os.path.dirname(os.path.abspath(self._dest_manifest_file))
+        dest_dir = os.path.dirname(self._dest_manifest_file)
         dest_file = os.path.basename(self._dest_manifest_file)
         for filename in os.listdir(dest_dir):
             if filename == dest_file and self._force == False:
@@ -117,6 +124,7 @@ def parse_command_line(args):
     parser.add_argument("--force",
                         help="use destination manifest file, even if it exists",
                         action="store_true")
+
     parser.add_argument("--publish",
                         help="Push the new manifest to github",
                         action='store_true')
@@ -143,7 +151,7 @@ def main():
             if args.git_credential and args.publish_branch:
                 repo_operator = RepoOperator(args.git_credential)
                 commit_message = "add a manifest file for new branch {0}".format(args.branch)
-                repo_dir = os.path.dirname(os.path.abspath(args.dest_manifest))
+                repo_dir = os.path.dirname(args.dest_manifest)
                 repo_operator.checkout_repo_branch(repo_dir, args.publish_branch)
                 generator.generate_manifest()
                 repo_operator.push_repo_changes(repo_dir, commit_message)

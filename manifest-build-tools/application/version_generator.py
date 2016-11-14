@@ -12,6 +12,9 @@ usage:
 --is-official-release
 --parameter-file version.txt
 
+Because this script need to import scripts under lib.
+The script HWIMO-BUILD helps to add the scripts under lib to python path.
+
 The required parameters: 
 repo-dir
 manifest-repo-dir
@@ -31,8 +34,12 @@ from common import *
 class VersionGenerator(object):
     def __init__(self, repo_dir, manifest_repo_dir):
         """
-        :return:
- 
+        This module compute the version of a repository
+        The version for candidate release: {big-version}~{version-stage}-{small-version}
+        The big version is parsed from debian/changelog
+        The version-stage is devel if branch is master; or rc if branch if not master
+        The samll version is consist of the commit hash and commit date of manifest repository
+        :return:None
         """
         self._repo_dir = repo_dir
         self._manifest_repo_dir = manifest_repo_dir
@@ -40,7 +47,8 @@ class VersionGenerator(object):
  
     def generate_small_version(self):
         """
-        generate the small version which consists of commit date and commit hash
+        Generate the small version which consists of commit date and commit hash of manifest repository
+        According to small version, users can track the commit of all repositories in manifest file
         return: small version 
         """
 
@@ -50,26 +58,33 @@ class VersionGenerator(object):
         version = "{date}-{commit}".format(date=date, commit=commit_id[0:7])
         return version
 
+    def debian_exist(self):
+        """
+        check whether debian or debianstatic directory under the repository
+        return: True if debian or debianstatic exist
+                False
+        """
+        if os.path.isdir(self._repo_dir):
+            for filename in os.listdir(self._repo_dir):
+                if filename == "debian":
+                    return True
+        return False
+
     def generate_big_version(self):
         """
-        generate the big version according to changelog
+        Generate the big version according to changelog
+        The big version is the latest version of debian/changelog
         return: big version
         """
         #If the repository is on-http, sync the debianstatic/on-http/ to debian before compute version
         repo_url = self.repo_operator.get_repo_url(self._repo_dir)
         repo_name = strip_suffix(os.path.basename(repo_url), ".git")
         if repo_name == "on-http":
-            cmd_args = ["rsync", "-ar", "debianstatic/on-http/", "debian"]
-            proc = subprocess.Popen(cmd_args,
-                                    cwd=self._repo_dir,
-                                    stderr=subprocess.PIPE,
-                                    stdout=subprocess.PIPE,
-                                    shell=False)
+            link_dir("debianstatic/on-http/", "debian", self._repo_dir)
 
-            (out, err) = proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError("Failed to sync on-http/debianstatic/on-http to on-http/debian due to {0}".format(err))
-                
+        if not self.debian_exist():
+            return None
+               
         cmd_args = ["dpkg-parsechangelog", "--show-field", "Version"]
         proc = subprocess.Popen(cmd_args,
                                 cwd=self._repo_dir,
@@ -78,26 +93,28 @@ class VersionGenerator(object):
                                 shell=False)
 
         (out, err) = proc.communicate()
+
+        if repo_name == "on-http":
+            os.remove(os.path.join(self._repo_dir, "debian"))
+
         if proc.returncode == 0:
             return out.strip()
         else:
-            print "Failed to parse version in debian/changelog due to {0}".format(err)
-            return None
-
+            raise RuntimeError("Failed to parse version in debian/changelog due to {0}".format(err))
         
-    def generate_candidate_version(self):
+    def generate_version_stage(self):
         """
-        generate the candidate version according to branch
+        Generate the version stage according to the stage of deveplopment
         return: devel ,if the branch is master
                 rc, if the branch is not master
         """
         current_branch = self.repo_operator.get_current_branch(self._repo_dir)
-        candidate_version = ""
+        version_stage = ""
         if "master" in current_branch:
-            candidate_version = "devel"
+            version_stage = "devel"
         else:
-            candidate_version = "rc"
-        return candidate_version
+            version_stage = "rc"
+        return version_stage
         
     def generate_package_version(self, is_official_release):
         """
@@ -113,13 +130,13 @@ class VersionGenerator(object):
         if is_official_release:
             version = big_version
         else:
-            candidate_version = self.generate_candidate_version()
+            version_stage = self.generate_version_stage()
             small_version = self.generate_small_version()
 
-            if candidate_version is None or small_version is None:
+            if version_stage is None or small_version is None:
                 raise RuntimeError("Failed to generate version for {0}, due to the candidate version or small version is None".format(self._repo_dir))
 
-            version = "{0}~{1}-{2}".format(big_version, candidate_version, small_version)
+            version = "{0}~{1}-{2}".format(big_version, version_stage, small_version)
         
         return version
 
@@ -143,7 +160,7 @@ def parse_command_line(args):
                         help="This release if official",
                         action="store_true")
     parser.add_argument('--parameter-file',
-                        help="The jenkins parameter file that will used for succeeding Jenkins job",
+                        help="The jenkins parameter file that will be used for succeeding Jenkins job",
                         action='store',
                         default="release_version")
 
@@ -183,7 +200,6 @@ def main():
     generator = VersionGenerator(args.repo_dir, args.manifest_repo_dir)
     try:
         version = generator.generate_package_version(args.is_official_release)
-
         # write parameters to parameter file
         downstream_parameters = {}
         downstream_parameters['PKG_VERSION'] = version
