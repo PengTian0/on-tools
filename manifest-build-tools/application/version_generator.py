@@ -10,7 +10,6 @@ usage:
 --repo-dir /home/onrack/rackhd/release/rackhd-repos/PengTian0/b/b/on-http
 --manifest-repo-dir /home/onrack/rackhd/release/rackhd-repos/PengTian0/b/build-manifests
 --is-official-release
---parameter-file version.txt
 
 Because this script need to import scripts under lib.
 The script HWIMO-BUILD helps to add the scripts under lib to python path.
@@ -21,7 +20,6 @@ manifest-repo-dir
 
 The optional parameters:
 is-official-release (default value is false)
-parameter-file (default value is release_version)
 """
 import os
 import sys
@@ -76,25 +74,32 @@ class VersionGenerator(object):
         The big version is the latest version of debian/changelog
         return: big version
         """
-        #If the repository is on-http, sync the debianstatic/on-http/ to debian before compute version
         repo_url = self.repo_operator.get_repo_url(self._repo_dir)
         repo_name = strip_suffix(os.path.basename(repo_url), ".git")
-        if repo_name == "on-http":
-            link_dir("debianstatic/on-http/", "debian", self._repo_dir)
-
-        if not self.debian_exist():
+        # If the repository has the debianstatic/repository name/,
+        # create a soft link to debian before compute version
+        debian_exist = self.debian_exist()
+        linked = False
+        if not debian_exist:
+            for filename in os.listdir(self._repo_dir):
+                if filename == "debianstatic":
+                    debianstatic_dir = os.path.join(self._repo_dir, "debianstatic")
+                    for debianstatic_filename in os.listdir(debianstatic_dir):
+                        if debianstatic_filename == repo_name:
+                            debianstatic_repo_dir = "debianstatic/{0}".format(repo_name)
+                            link_dir(debianstatic_repo_dir, "debian", self._repo_dir)
+                            linked = True
+        if not debian_exist and not linked:
             return None
-               
         cmd_args = ["dpkg-parsechangelog", "--show-field", "Version"]
         proc = subprocess.Popen(cmd_args,
                                 cwd=self._repo_dir,
                                 stderr=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 shell=False)
-
         (out, err) = proc.communicate()
 
-        if repo_name == "on-http":
+        if linked:
             os.remove(os.path.join(self._repo_dir, "debian"))
 
         if proc.returncode == 0:
@@ -124,7 +129,7 @@ class VersionGenerator(object):
         """
         big_version = self.generate_big_version()
         if big_version is None:
-            print "Failed to generate big version, maybe the {0} doesn't contain debian directory".format(self._repo_dir)
+            logging.warning("Failed to generate big version, maybe the {0} doesn't contain debian directory".format(self._repo_dir))
             return None
 
         if is_official_release:
@@ -159,53 +164,19 @@ def parse_command_line(args):
                         default=False,
                         help="This release if official",
                         action="store_true")
-    parser.add_argument('--parameter-file',
-                        help="The jenkins parameter file that will be used for succeeding Jenkins job",
-                        action='store',
-                        default="release_version")
 
     parsed_args = parser.parse_args(args)
     return parsed_args
 
-
-def write_downstream_parameters(filename, params):
-    """
-    Add/append downstream parameter (java variable value pair) to the given
-    parameter file. If the file does not exist, then create the file.
-
-    :param filename: The parameter file that will be used for making environment
-     variable for downstream job.
-    :param params: the parameters dictionary
-
-    :return:
-            None on success
-            Raise any error if there is any
-    """
-    if filename is None:
-        return
-
-    with open(filename, 'w') as fp:
-        try:
-            for key in params:
-                entry = "{key}={value}\n".format(key=key, value=params[key])
-                fp.write(entry)
-        except IOError:
-            print "Unable to write parameter(s) for next step(s), exit"
-            exit(2)
-
 def main():
     # parse arguments
     args = parse_command_line(sys.argv[1:])
-
     generator = VersionGenerator(args.repo_dir, args.manifest_repo_dir)
     try:
         version = generator.generate_package_version(args.is_official_release)
-        # write parameters to parameter file
-        downstream_parameters = {}
-        downstream_parameters['PKG_VERSION'] = version
-        write_downstream_parameters(args.parameter_file, downstream_parameters)
+        print version
     except Exception, e:
-        print "Failed to generate version for {0} due to {1}\n Exiting now".format(args.repo_dir, e)
+        logging.error("Failed to generate version for {0} due to {1}\n Exiting now".format(args.repo_dir, e))
         sys.exit(1)
 
 if __name__ == "__main__":

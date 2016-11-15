@@ -15,6 +15,8 @@ manifest-name: The name of manifest file.
 builddir: The destination for repositories in manifest stored.
           Repositories under the directory include on-xxx and RackHD
 git-credential: url, credentials pair for the access to github repos
+                For example: https://github.com,GITHUB
+                GITHUB is an environment variable: GITHUB=username:password
 
 The optional parameter:
 force: Overwrite the build directory if it exists.

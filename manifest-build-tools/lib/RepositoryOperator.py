@@ -11,6 +11,23 @@ class RepoCloner(ParallelTasks):
     """
     Do the actual work of checking out a git repository to the specifications
     given in the manifest file.
+    Usage:
+    cloner = RepoCloner(integer)
+    # the cloner could add several tasks
+    cloner.add_task(data)
+    # data should contain:
+      'repo': {
+              "repository": "https://github.com/RackHD/on-tools.git",  ##required
+              "commit-id": xxx,                                        ##optional
+              "branch": xxx                                            ##optional
+      },
+      'builddir': dest_dir,   # the location to check out the repository into
+      'credentials': git_credential  # a list of Git credentials in URL:VARIABLE_NAME format
+
+    # run tasks in parallel
+    cloner.finish()
+    # get the result of tasks
+    results = cloner.get_results()
     """
     def add_task(self, data, name=None):
         """
@@ -433,7 +450,7 @@ class RepoOperator(object):
         if cmd_returncode != 0:
             raise RuntimeError("Error: Failed to checkout branch {0}".format(cmd_value))
 
-    def push_repo_changes(self, repo_dir, commit_message):
+    def push_repo_changes(self, repo_dir, commit_message, push_all=False):
         """
         publish changes of reposioty
         :param repo_dir: the directory of the repository
@@ -447,7 +464,10 @@ class RepoOperator(object):
                 print status_out
                 return
 
-        add_code, add_out, add_error = self.git.run(['add', '-A'], repo_dir)
+        if push_all:
+            add_code, add_out, add_error = self.git.run(['add', '-A'], repo_dir)
+        else:
+            add_code, add_out, add_error = self.git.run(['add', '-u'], repo_dir)
 
         if add_code != 0:
             raise RuntimeError('Unable to add files for commiting.\n{0}\n{1}\n{2}'.format\

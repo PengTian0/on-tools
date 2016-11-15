@@ -14,22 +14,24 @@ usage:
 --force \
 --git-credential https://github.com,GITHUB \
 --jobs 8 \
+--branch-name "branch/release-1.5.1 \
 checkout \
 branch
 
-The parameters to this script:
-manifest: the path of manifest file
-builddir: the destination for checked out repositories
-force: use destination directory, even if it exists
-git-credential: url, credentials pair for the access to github repos
-jobs: number of parallel jobs to run. The number is related to the compute architecture, multi-core processors...
+The required parameters:
+manifest: the path of manifest file.
+builddir: the destination for checked out repositories.
+git-credential: url, credentials pair for the access to github repos.
+                For example: https://github.com,GITHUB
+                GITHUB is an environment variable: 
+                GITHUB=username:password
 action: the supported action, just like action1 action2 ...
 
-The required parameters:
-manifest
-builddir
-git-credential
-action
+The optional parameters:
+force: use destination directory, even if it exists
+jobs: number of parallel jobs to run. The number is related to the compute architecture, multi-core processors...
+branch-name: the name of new branch.
+             If action contains "branch", the parameter is required.
 """
 
 import argparse
@@ -418,7 +420,6 @@ def main():
 
     if args.force:
         manifest_actions.set_force(args.force)
-        manifest_actions.check_builddir()
 
     for action in args.action:
         manifest_actions.add_action(action)
@@ -432,12 +433,16 @@ def main():
     if args.branch_name:
         manifest_actions.set_branch_name(args.branch_name)
 
+    manifest_actions.check_builddir()
     # Start to check out a set of repositories within a manifest file
     if 'checkout' in manifest_actions.actions:
         manifest_actions.get_repositories()
 
     if 'branch' in manifest_actions.actions:
         new_branch = manifest_actions.get_branch_name()
+        if 'checkout' not in manifest_actions.actions:
+            manifest_actions.get_repositories()
+
         if new_branch is not None:
             print "create branch and update package.json for the repos..."
             # Create a new branch if it doesn't exist.
