@@ -85,7 +85,7 @@ class ManifestGenerator(object):
         for job in downstream_jobs:
             job["branch"] = self._new_branch
 
-        self._manifest.build_name(build_name)
+        self._manifest.build_name = build_name
 
         self._manifest.validate_manifest()
         
