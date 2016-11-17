@@ -74,12 +74,17 @@ class Manifest(object):
     def build_name(self):
         return self._build_name
 
+    @build_name.setter
+    def build_name(self, build_name):
+        self._build_name = build_name
+        self._manifest['build-name'] = build_name
+
     @property
     def build_requirements(self):
         return self._build_requirements
     
     @build_requirements.setter
-    def set_build_requirements(self, requirements):
+    def build_requirements(self, requirements):
         self._manifest['build-requirements'] = requirements
         self._build_requirements = requirements
 
