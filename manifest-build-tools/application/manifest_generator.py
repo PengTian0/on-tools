@@ -75,8 +75,8 @@ class ManifestGenerator(object):
         update the manifest with new branch
         :return: None
         """
-        repositories = self._manifest.get_repositories()
-        downstream_jobs = self._manifest.get_downstream_jobs()
+        repositories = self._manifest.repositories
+        downstream_jobs = self._manifest.downstream_jobs
         build_name = os.path.basename(self._dest_manifest_file)
 
         for repo in repositories:
@@ -103,7 +103,7 @@ class ManifestGenerator(object):
                                     .format(dest_file, dest_dir))
 
         with open(self._dest_manifest_file, 'w') as fp:
-            json.dump(self._manifest.get_manifest(), fp, indent=4, sort_keys=True)
+            json.dump(self._manifest.manifest, fp, indent=4, sort_keys=True)
 
 def parse_command_line(args):
     """
