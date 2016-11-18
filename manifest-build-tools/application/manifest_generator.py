@@ -40,6 +40,7 @@ import shutil
 
 from RepositoryOperator import RepoOperator
 from manifest import Manifest
+from common import *
 
 class ManifestGenerator(object):
     def __init__(self, source, dest, branch, builddir, git_credentials, force=False, jobs=1):
