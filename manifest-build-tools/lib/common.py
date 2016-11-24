@@ -2,6 +2,8 @@
 
 import subprocess
 import logging
+from pyjavaproperties import Properties
+import os
 
 log_file = 'manifest-build-tools.log'
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', filename=log_file, filemode='w', level=logging.DEBUG)
@@ -36,4 +38,32 @@ def link_dir(src, dest, dir):
     if proc.returncode != 0:
         raise RuntimeError("Failed to sync {0} to {1} due to {2}".format(src, dest, err))
 
+def parse_property_file(filename):
+    """
+    parse java properties file
+    :param filename: the path of the properties file
+    :return: dictionary loaded from the file
+    """
+    if not os.path.isfile(filename):
+        raise RuntimeError("No file found for parameter at {0}".format(filename))
+    p = Properties()
+    p.load(open(filename))
+    return p
 
+def is_executable(fpath):
+    if os.path.isfile(fpath) and os.access(fpath, os.X_OK):
+        return True
+    return False
+
+def which(program):
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_executable(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_executable(exe_file):
+                return exe_file
+    return None
