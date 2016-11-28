@@ -339,12 +339,12 @@ class Builder(ParallelTasks):
             if 'command' in results[name]:
                 task_summary = []
                 task_summary.append("{0}:".format(name))
-
-                errors = BuildResult.summarize_errors(results[name])
+                build_results = results[name]['command']
+                errors = BuildResult.summarize_errors(build_results)
                 if errors > 0:
                     task_summary.append("    Number of falied commands: {0}".format(errors))
 
-                for result in results[name]:
+                for result in build_results:
                     summary = result.generate_summary_report()
                     task_summary.extend(summary)
 

@@ -1,45 +1,40 @@
 #!/usr/bin/env python
+# Copyright 2016, DELLEMC, Inc.
 
 """
 This is a command line program that makes a rackhd release to bintray.
+This program build debian packages for repositories 
+which checked out based on the given manifest file.
 
-This program first build debian packages for repositories which has changes.
-Then it will download packages for repositories which has no change and update their version.
-If all the debian packages are built successfully, it will uploads all the packages to bintray.
-Exit code will be 0 on success, something else on failures.
-
+Usage:
 ./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/make-debian-release.py \
 --build-directory b/ \
 --manifest-name rackhd-devel \
 --manifest-repo build-manifests/ \
---manifest-branch master \
---manifest-commit-id HEAD\
 --git-credential https://github.com,GITHUB \
---updated-repo on-core  \
 --jobs 8 \
 --is-official-release \
 --parameter-file downstream-files \
---debian-depth 3
+--force \
+--sudo-credential
 
 The required parameters:
 build-directory: A directory where all the repositories are cloned to. 
-manifest-name: The name of a manifest file. All the repositories are cloned according to the manifest file.
+manifest-name: The name of a manifest file. 
+               All the repositories are cloned based on the manifest file.
 manifest-repo: The directory of manifest repository
 git-credential: Git URL and credential for CI services: <URL>,<Credentials>
 
 The optional parameters:
-manifest-branch: The branch of manifest repository, the default value is master.
-manifest-commit-id: The commit id of manifest repository, the default value is HEAD.
-updated-repo: The name of updated repository. The manifest file is updated with the repository.
-jobs: Number of parallel jobs(build debian packages) to run. 
-      The number is related to the compute architecture, multi-core processors..
 is-official-release: If true, this release is official, the default value is false
 parameter-file: The file with parameters. The file will be passed to downstream jobs.
-debian-depth: The depth in top level directory that you want this program look into to find debians.
-
+force: Use destination directory, even if it exists.
+sudo-credential: The environment variable name of sudo credentials.
+                 For example: SUDO_CRED=username:password
+jobs: Number of parallel jobs(build debian packages) to run.
+      The number is related to the compute architecture, multi-core processors..
+force:
 """
-
-# Copyright 2016, EMC, Inc.
 
 import argparse
 import os
@@ -129,9 +124,12 @@ def generate_version_file(top_level_dir, manifest_repo_dir, is_official_release=
 def run_build_scripts(top_level_dir, repos, jobs=1, sudo_creds=None):
     """
     Go into the directory provided and run all the building scripts.
-
     :param top_level_dir: Top level directory that stores all the
-        cloned repositories.
+                          cloned repositories.
+    :param repos: A list of repositories to be build
+    :param jobs: Number of parallel jobs(build debian packages) to run.
+    :param sudo_creds: the environment variable name of sudo credentials.
+                       for example: SUDO_CRED=username:password
     :return:
         exit on failures
         None on success.
@@ -149,14 +147,16 @@ def run_build_scripts(top_level_dir, repos, jobs=1, sudo_creds=None):
             print "Error found during debian building. cannot continue."
             sys.exit(2)
     except Exception, e:
-        print e
         sys.exit(1)
 
 def get_build_repos(directory):
+    """
+    :param directory: Directory that stores all the cloned repositories.
+    :return: a list which contains the name of repositories under the directory
+    """
     repos = []
     for filename in os.listdir(directory):
         repos.append(filename)
-
     return repos
 
 def checkout_repos(manifest, builddir, force, git_credential, jobs):
@@ -164,17 +164,23 @@ def checkout_repos(manifest, builddir, force, git_credential, jobs):
     manifest_actions.execute_actions()
     
 def build_debian_packages(build_directory, jobs, manifest_repo, is_official_release, sudo_creds):
+    """
+    Build debian packages
+    """
+    # Update the debian/control of rackhd to depends on specified version of component of raqkhd
     update_rackhd_control(build_directory, manifest_repo, is_official_release=is_official_release)
+    # Generate a file which contains the version of repository 
     generate_version_file(build_directory, manifest_repo, is_official_release=is_official_release)
     repos = get_build_repos(build_directory)
+    # Run HWIMO-BUILD script under each repository to build debian packages
     run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
 
 def write_parameters(filename, params):
     """
-    Add/append downstream parameter (java variable value pair) to the given
-    parameter file. If the file does not exist, then create the file.
+    Add/append downstream parameter (java variable value pair) to the given parameter file. 
+    If the file does not exist, then create the file.
     :param filename: The parameter file that will be used for making environment
-     variable for downstream job.
+                     variable for downstream job.
     :param params: the parameters dictionary
     :return:
             None on success
@@ -194,9 +200,8 @@ def write_parameters(filename, params):
 
 def main():
     """
-    Build all the debians, create the repository and upload all the artifacts.
+    Build all the debians.
     Exit on encountering any error.
-    :return:
     """
     args = parse_args(sys.argv[1:])
     
@@ -207,7 +212,7 @@ def main():
         #upload_debian_packages()
     except Exception, e:
         traceback.print_exc()
-        print "Failed to build and upload debian packages due to {0}".format(e)
+        print "Failed to build debian packages due to {0}".format(e)
         sys.exit(1)
 
 if __name__ == '__main__':
