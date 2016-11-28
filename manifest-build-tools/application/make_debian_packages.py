@@ -209,7 +209,6 @@ def main():
         manifest_path = os.path.join(args.manifest_repo, args.manifest_name)
         checkout_repos(manifest_path, args.build_directory, args.force, args.git_credential, args.jobs)
         build_debian_packages(args.build_directory, args.jobs, args.manifest_repo, args.is_official_release, args.sudo_credential)
-        #upload_debian_packages()
     except Exception, e:
         traceback.print_exc()
         print "Failed to build debian packages due to {0}".format(e)

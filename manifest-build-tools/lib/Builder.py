@@ -1,13 +1,12 @@
+# Copyright 2016, DELLEMC, Inc.
 """
 This is a module that contains the tool for python to run a list of commands
 and generate report for results of running.
 """
-# Copyright 2016, EMC, Inc.
 
 import os
 import subprocess
 import sys
-import traceback
 
 try:
     from ParallelTasks import ParallelTasks
@@ -101,7 +100,6 @@ class BuildResult(object):
                     status = "ERROR: EXIT {0}".format(self._return_code)
             else:
                 status = "RETURN CODE IS NONE"
-
         else:
             status = " Not Present"
         summary.append("    {0}: {1}".format(short_command, status))
@@ -291,10 +289,7 @@ class Builder(ParallelTasks):
         """
         results = self.get_results()
         key_list = results.keys()
-        print "888888888888888888 results"
-        print results
 
-        # results is a ProxyDict, not iterable in the for name in results sense
         for name in sorted(key_list):
             if 'command' in results[name]:
                 build_results = results[name]['command']
@@ -334,7 +329,6 @@ class Builder(ParallelTasks):
         results = self.get_results()
         key_list = results.keys()
 
-        # results is a ProxyDict, not iterable in the for name in results sense
         for name in sorted(key_list):
             if 'command' in results[name]:
                 task_summary = []
@@ -351,5 +345,4 @@ class Builder(ParallelTasks):
                 all_summary.extend(task_summary)
 
         return all_summary
-
 

@@ -81,18 +81,15 @@ class DebianBuilder(object):
                              'env_file': None
                             }
                    }
-
             command_name = './HWIMO-BUILD'
             path = os.path.abspath(os.path.join(self._top_level_dir, repo))
             if not os.path.exists(path):
                 raise ValueError("Repository {0} doesn't exist under {1}"
                                  .format(repo, self._top_level_dir))
             command = BuildCommand(command_name, path)
-
             if repo == "on-imagebuilder" and self._sudo_creds:
                 command.use_sudo = True
                 command.sudo_creds = self._sudo_creds
-
             task['data']['commands'].append(command)
 
             version_file = "{0}.version".format(repo)
@@ -140,5 +137,4 @@ class DebianBuilder(object):
         for item in summary:
             print item
         print "\n\n"
-
 
