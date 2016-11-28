@@ -185,7 +185,7 @@ class BuildCommand(object):
     def run(self):
         try:
             command = self.to_string()
-            print "Execute command: {0}".format(command)
+            print "Execute command: {0} under {1}".format(command, self._directory)
             proc = subprocess.Popen(command,
                                     stderr=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
