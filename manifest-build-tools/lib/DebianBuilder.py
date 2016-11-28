@@ -10,6 +10,7 @@ import sys
 
 try:
     from Builder import Builder
+    from Builder import BuildCommand
     from common import *
 except ImportError as import_err:
     print import_err
@@ -21,7 +22,7 @@ class DebianBuilder(object):
     It assumes that the repository is cloned successfully and is accessible for the tool.
     """
 
-    def __init__(self, top_level_dir, jobs=1, sudo_creds=None):
+    def __init__(self, top_level_dir, repos, jobs=1, sudo_creds=None):
         """
         Initializer set up the ArtifactBuilder
         :param top_level_dir: the directory that holds all the cloned
@@ -30,18 +31,18 @@ class DebianBuilder(object):
                                     /on-cli/...
         :return: None
         """
-        self.set_repo_directory(top_level_dir)
+        self.top_level_dir = top_level_dir
+        self._repos = repos
         self._jobs = jobs
         self._sudo_creds = sudo_creds
+        self._builder = Builder(self._jobs)        
 
-    def get_repo_directory(self):
-        """
-        getter for repository directory
-        :return: directory where the repositories are cloned.
-        """
+    @property
+    def top_level_dir(self):
         return self._top_level_dir
 
-    def set_repo_directory(self, top_level_dir):
+    @top_level_dir.setter
+    def top_level_dir(self, top_level_dir):
         """
         Setter for the repository directory
         :param top_level_dir: the directory that holds all the cloned
@@ -56,129 +57,76 @@ class DebianBuilder(object):
             raise ValueError("The path provided '{dir}' is not a directory."
                              .format(dir=top_level_dir))
 
-    @staticmethod
-    def __printable_results(name, build_result):
-        """
-        Generate complete and summary reports for the given build
-        :param build_result:
-        :return: tuple of (detailed, summary, errors), printable lines of results along with
-                 a numeric error count
-        """
-        detailed = []
-        summary = []
-        errors = 0
-
-        detailed.append("=== Results for {0} ===".format(name))
-        summary.append("{0}:".format(name))
-
-        if 'command' not in build_result:
-            return (detailed, summary, errors)
-
-        for result in build_result['command']:
-            result_detailed, result_summary, result_errors = result.generate_report()
-            detailed.extend(result_detailed)
-            summary.extend(result_summary)
-            errors += result_errors
-
-        return (detailed, summary, errors)
-
-    @staticmethod
-    def summarize_results(results):
-        """
-        :param results: returned results from the repository builds
-        :return: number of errors found
-        """
-        build_errors = 0
-        all_detailed = []
-        all_summary = []
-
-        key_list = results.keys()
-
-        # results is a ProxyDict, not iterable in the for name in results sense
-        for name in sorted(key_list):
-            
-            (detailed, summary, errors) = DebianBuilder.__printable_results(name, results[name])
-
-            all_detailed.extend(detailed)
-            all_summary.extend(summary)
-            build_errors += errors
-
-        #print "\n\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n"
-        #print "Full Details\n"
-        #for item in all_detailed:
-        #    print item
-        #print "\n\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n"
-
-        print "Summary:"
-        for item in all_summary:
-            print item
-        print "\n\n"
-
-        return build_errors
-
     def generate_tasks(self):
         tasks = []
-        for repo in os.listdir(self._top_level_dir):
+        for repo in self._repos:
             task = {
                     'name': repo,
                     'data': {
-                             'directory': None,
                              'commands': [],
                              'env_file': None
                             }
                    }
-            path = os.path.abspath(os.path.join(self._top_level_dir, repo))
-            task['data']['directory'] = path
 
-            command = {'command': os.path.join(path, 'HWIMO-BUILD')}
-            if self._sudo_creds:
-                command['sudo'] = True
-                command['credential'] = self._sudo_creds
+            command_name = './HWIMO-BUILD'
+            path = os.path.abspath(os.path.join(self._top_level_dir, repo))
+            if not os.path.exists(path):
+                raise ValueError("Repository {0} doesn't exist under {1}"
+                                 .format(repo, self._top_level_dir))
+            command = BuildCommand(command_name, path)
+
+            if repo == "on-imagebuilder" and self._sudo_creds:
+                command.use_sudo = True
+                command.sudo_creds = self._sudo_creds
+
             task['data']['commands'].append(command)
 
             version_file = "{0}.version".format(repo)
             version_path = os.path.abspath(os.path.join(path, version_file))
             if os.path.exists(version_path):
                 task['data']['env_file'] = version_path
-            tasks.append(task)
+            print task
 
+            tasks.append(task)
         return tasks
 
     def blind_build_all(self):
         """
         Iterate through the first layer subdirectory of top_level_dir and
-        if found HWIMO-BUILD or HWIMO-TEST, then execute these two scripts in
-        the order of HWIMO-TEST; HWIMO-BUILD.
+        if found HWIMO-BUILD, then execute the script.
 
-        It does not check the correctness of the cloned directory. If all the
-        HWIMO-BUILD and HWIMO-TEST success, then return true,
+        It does not check the correctness of the cloned directory. 
+        If all the HWIMO-BUILD success, then return true,
         otherwise return false
 
-        Build result example:
-        {
-        'on-http': {
-            'HWIMO-TEST': 'pass'/'fail'/None,
-            'HWIMO-BUILD': 'pass'/'fail'/None
-            }
-        }
-        :return: True/False for build success.
+        :return: True if build success.
+                 False if build failed.
         """
         try:
-            builder = Builder(self._jobs)
-
             tasks = self.generate_tasks()
             for task in tasks:
-                builder.add_task(task['data'], task['name'])
-
-            builder.finish()
-            results = builder.get_results()
-            build_errors = DebianBuilder.summarize_results(results)
-
-            if build_errors > 0:
-                print "**** ERRORS IN BUILD ****"
-                return False
-            else:
-                print "---- GOOD BUILD ----"
-                return True
+                self._builder.add_task(task['data'], task['name'])
+            self._builder.finish()
         except Exception, e:
-            raise RuntimeError("Failed to build all debian packages due to {0}".format(e))
+            raise RuntimeError("Failed to build all debian packages due to \n{0}".format(e))
+
+    def get_build_result(self):
+        build_result = self._builder.summarize_results()
+        return build_result
+
+    def print_detailed_report(self):
+        detailed = self._builder.generate_detailed_report()
+        print "\n\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n"
+        print "Full Details\n"
+        for item in detailed:
+            print item
+
+    def print_summary_report(self):
+        summary = self._builder.generate_summary_report()
+        print "\n\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n"
+        print "Summary:"
+        for item in summary:
+            print item
+        print "\n\n"
+
+

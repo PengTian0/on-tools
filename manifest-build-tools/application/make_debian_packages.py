@@ -56,12 +56,6 @@ except ImportError as import_err:
     print import_err
     sys.exit(1)
 
-from reprove import ManifestActions
-from update_rackhd_version import RackhdDebianControlUpdater
-from version_generator import VersionGenerator
-from DebianBuilder import DebianBuilder
-import traceback
-
 def parse_args(args):
     """
     Parse script arguments.
@@ -83,13 +77,6 @@ def parse_args(args):
                         help="The name of manifest file",
                         action='store')
 
-    parser.add_argument('--debian-depth',
-                        help="The depth in top level directory that you want"
-                             " this program look into to find debians.",
-                        default=3,
-                        type=int,
-                        action='store')
-
     parser.add_argument('--parameter-file',
                         help="The jenkins parameter file that will used for succeeding Jenkins job",
                         action='store',
@@ -99,6 +86,11 @@ def parse_args(args):
                         required=True,
                         help="Git URL and credential for CI services: <URL>,<Credentials>",
                         action='append',
+                        default=None)
+
+    parser.add_argument('--sudo-credential',
+                        help="username:password pair for sudo user",
+                        action='store',
                         default=None)
 
     parser.add_argument('--jobs',
@@ -114,6 +106,7 @@ def parse_args(args):
     parser.add_argument('--force',
                         help="",
                         action="store_true")
+
     parsed_args = parser.parse_args(args)
     return parsed_args
 
@@ -132,6 +125,49 @@ def generate_version_file(top_level_dir, manifest_repo_dir, is_official_release=
             version_file = "{0}.version".format(repo)
             version_path = os.path.join(repo_dir, version_file)
             write_parameters(version_path, params)
+
+def run_build_scripts(top_level_dir, repos, jobs=1, sudo_creds=None):
+    """
+    Go into the directory provided and run all the building scripts.
+
+    :param top_level_dir: Top level directory that stores all the
+        cloned repositories.
+    :return:
+        exit on failures
+        None on success.
+    """
+    try:
+        builder = DebianBuilder(top_level_dir, repos, jobs=jobs, sudo_creds=sudo_creds)
+        builder.blind_build_all()
+        builder.print_summary_report()
+
+        result = builder.get_build_result()
+        if result:
+            print "Debian building is finished successfully."
+        else:
+            builder.print_detailed_report()
+            print "Error found during debian building. cannot continue."
+            sys.exit(2)
+    except Exception, e:
+        print e
+        sys.exit(1)
+
+def get_build_repos(directory):
+    repos = []
+    for filename in os.listdir(directory):
+        repos.append(filename)
+
+    return repos
+
+def checkout_repos(manifest, builddir, force, git_credential, jobs):
+    manifest_actions = ManifestActions(manifest, builddir, force=force, git_credentials=git_credential, jobs=jobs, actions=["checkout", "packagerefs"])
+    manifest_actions.execute_actions()
+    
+def build_debian_packages(build_directory, jobs, manifest_repo, is_official_release, sudo_creds):
+    update_rackhd_control(build_directory, manifest_repo, is_official_release=is_official_release)
+    generate_version_file(build_directory, manifest_repo, is_official_release=is_official_release)
+    repos = get_build_repos(build_directory)
+    run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
 
 def write_parameters(filename, params):
     """
@@ -154,47 +190,7 @@ def write_parameters(filename, params):
                 fp.write(entry)
         except IOError:
             print "Unable to write parameter(s) for next step(s), exit"
-            exit(2)
-
-def run_build_scripts(top_level_dir, jobs=1):
-    """
-    Go into the directory provided and run all the building scripts.
-
-    :param top_level_dir: Top level directory that stores all the
-        cloned repositories.
-    :return:
-        exit on failures
-        None on success.
-    """
-    try:
-        builder = DebianBuilder(top_level_dir, jobs=jobs)
-        if builder.blind_build_all():
-            print "Debian building is finished successfully."
-        else:
-            print "Error found during debian building. cannot continue."
-            exit(2)
-    except Exception, e:
-        print e
-        exit(1)
-
-def upload_debs(top_devel_dir, debian_depth, bintray):
-    """
-    upload all the debians under top level dir to bintray
-    :param top_devel_dir: 
-    :param debian_depth:
-    :param bintray: A dictionary which contains bintray username,
-                    api key, subject, repository, component, distribution, architecture
-    """
-    return
-
-def checkout_repos(manifest, builddir, force, git_credential, jobs):
-    manifest_actions = ManifestActions(manifest, builddir, force=force, git_credentials=git_credential, jobs=jobs, actions=["checkout", "packagerefs"])
-    manifest_actions.execute_actions()
-    
-def build_debian_packages(build_directory, jobs, manifest_repo, is_official_release):
-    update_rackhd_control(build_directory, manifest_repo, is_official_release=is_official_release)
-    generate_version_file(build_directory, manifest_repo, is_official_release=is_official_release)
-    run_build_scripts(build_directory, jobs=jobs)
+            sys.exit(2)
 
 def main():
     """
@@ -205,9 +201,9 @@ def main():
     args = parse_args(sys.argv[1:])
     
     try:
-        #manifest_path = os.path.join(args.manifest_repo, args.manifest_name)
-        #checkout_repos(manifest_path, args.build_directory, args.force, args.git_credential, args.jobs)
-        build_debian_packages(args.build_directory, args.jobs, args.manifest_repo, args.is_official_release)
+        manifest_path = os.path.join(args.manifest_repo, args.manifest_name)
+        checkout_repos(manifest_path, args.build_directory, args.force, args.git_credential, args.jobs)
+        build_debian_packages(args.build_directory, args.jobs, args.manifest_repo, args.is_official_release, args.sudo_credential)
         #upload_debian_packages()
     except Exception, e:
         traceback.print_exc()

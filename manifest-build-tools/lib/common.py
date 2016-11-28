@@ -50,20 +50,25 @@ def parse_property_file(filename):
     p.load(open(filename))
     return p
 
-def is_executable(fpath):
-    if os.path.isfile(fpath) and os.access(fpath, os.X_OK):
-        return True
-    return False
+def parse_credential_variable(varname):
+    """
+    Get the specified variable name from the environment and split it into username,password
+    :param varname: environment variable name
+    :return: username, password tuple
+    """
+    try:
+        if varname not in os.environ:
+            raise ValueError("Credential variable {0} doesn't exist".format(varname))
 
-def which(program):
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_executable(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_executable(exe_file):
-                return exe_file
-    return None
+        credential = os.environ[varname]
+        if credential is None:
+            raise ValueError("Failed to parse credential variable {0}".format(varname))
+
+        (username, password) = credential.split(':', 2)
+        if username is None or password is None:
+            raise ValueError("Failed to split credential variable {0} into username, password".format(varname))
+
+        return username, password
+    except Exception, e:
+        raise ValueError(e)
+
