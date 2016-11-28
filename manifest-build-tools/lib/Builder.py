@@ -1,6 +1,6 @@
 """
-This is a module that contains the tool for python to build/test the
-debians after all the directories are checked out based on a given manifest file.
+This is a module that contains the tool for python to run a list of commands
+and generate report for results of running.
 """
 # Copyright 2016, EMC, Inc.
 
@@ -19,7 +19,6 @@ except ImportError as import_err:
 class BuildResult(object):
     """
     Complete output from the running of a build command on a given host.
-
     Contains the command that was supposed to be run, whether it was present ot not,
     the return code, and the standard output and standard error text.
     """
@@ -72,6 +71,9 @@ class BuildResult(object):
         self._stderr = stderr
 
     def generate_detailed_report(self):
+        """
+        Generate reports with details: return code, stdout, stderr
+        """
         detailed = []
         if self._present is True:
             detailed.append(self._command)
@@ -85,6 +87,10 @@ class BuildResult(object):
         return detailed
 
     def generate_summary_report(self):
+        """
+        Generate report with the result of running: 
+        Good or ERROR: EXIT or Not Present
+        """
         summary = []
         short_command = os.path.basename(self._command)
         if self._present is True:
@@ -97,7 +103,7 @@ class BuildResult(object):
                 status = "RETURN CODE IS NONE"
 
         else:
-            status = " Not present"
+            status = " Not Present"
         summary.append("    {0}: {1}".format(short_command, status))
         return summary
 
@@ -110,7 +116,18 @@ class BuildResult(object):
         return errors
 
 class BuildCommand(object):
+    """
+    A module for build command.
+    """
     def __init__(self, name, directory, arguments=None, use_sudo=False, sudo_creds=None):
+        """
+        _name: the command name that was supposed to be run
+        _directory: the directory under which to run command
+        _use_sudo: whether the command was run with sudo previleges
+        _sudo_creds: the environment variable name of sudo credentials. 
+                     For example: SUDO_CREDS=username:password
+        _arguments: the arguments of the command
+        """
         self._name = name
         self._directory = directory
         self._use_sudo = use_sudo
@@ -218,7 +235,6 @@ class Builder(ParallelTasks):
         :param data: A dictonary which should contain:
                      commands: A list of comamnd instances. It's required.
                      env_file: A property file which contains environment variables. It's optional
-
         :param name: The name of the task. The key by which the job results will be returned.
         :return: None
         """
@@ -245,12 +261,8 @@ class Builder(ParallelTasks):
 
     def do_one_task(self, name, data, results):
         """
-        Perform the work of doing a build in a checked out repository
+        Perform the actual work.
         name and data will come from the values passed in to add_task()
-        :param name:
-        :param data: A dictonary which should contain:
-                     commands: A list of comamnd instances. It's required.
-                     env_file: A property file which contains environment variables. It's optional
         :param results: a list of instances of BuildResult
         :return: None
         """
@@ -274,8 +286,8 @@ class Builder(ParallelTasks):
 
     def summarize_results(self):
         """
-        :param results: returned results from the repository builds
-        :return: number of errors found
+        :return: True if the number of errors found is 0
+                 False if the number of errors found is greater than 0
         """
         results = self.get_results()
         key_list = results.keys()
@@ -292,6 +304,9 @@ class Builder(ParallelTasks):
         return True
 
     def generate_detailed_report(self):
+        """
+        Generate reports with details: return code, stdout, stderr
+        """
         all_detailed = []
 
         results = self.get_results()
@@ -310,6 +325,10 @@ class Builder(ParallelTasks):
         return all_detailed
 
     def generate_summary_report(self):
+        """
+        Generate report with the result of running:
+        Good or ERROR: EXIT or Not Present
+        """       
         all_summary = []
 
         results = self.get_results()

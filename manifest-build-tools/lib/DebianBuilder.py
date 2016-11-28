@@ -1,5 +1,5 @@
 """
-This is a module that contains the tool for python to build/test the
+This is a module that contains the tool for python to build the
 debians after all the directories are checked out based on a given manifest file.
 """
 # Copyright 2016, EMC, Inc.
@@ -18,17 +18,19 @@ except ImportError as import_err:
 
 class DebianBuilder(object):
     """
-    This is a class that builds the packages. 
+    This is a class that builds the debian packages. 
     It assumes that the repository is cloned successfully and is accessible for the tool.
     """
-
     def __init__(self, top_level_dir, repos, jobs=1, sudo_creds=None):
         """
-        Initializer set up the ArtifactBuilder
         :param top_level_dir: the directory that holds all the cloned
-        repositories according to manifest
-            example: <top_level_dir>/on-http/...
-                                    /on-cli/...
+                              repositories according to manifest
+                              example: <top_level_dir>/on-http/...
+                                                      /on-tftp/...
+        :param repos: a list of repositories to be build
+        :param jobs: Number of parallel jobs(build debian packages) to run.
+        :param sudo_creds: the environment variable name of sudo credentials.
+                           for example: SUDO_CRED=username:password
         :return: None
         """
         self.top_level_dir = top_level_dir
@@ -46,9 +48,9 @@ class DebianBuilder(object):
         """
         Setter for the repository directory
         :param top_level_dir: the directory that holds all the cloned
-        repositories according to manifest
-            example: <top_level_dir>/on-http/...
-                                      /on-cli/...
+                              repositories according to manifest
+                              example: <top_level_dir>/on-http/...
+                                                      /on-tftp/...
         :return: None
         """
         if os.path.isdir(top_level_dir):
@@ -58,6 +60,18 @@ class DebianBuilder(object):
                              .format(dir=top_level_dir))
 
     def generate_tasks(self):
+        """
+        Generate a list of tasks to be perform.
+        An example of task:
+                   {
+                    'name': repo,
+                    'data': {
+                             'commands': [command1, ...], #command1 is an instance of BuildCommand
+                             'env_file': on-http.version
+                            }
+                   }
+        
+        """
         tasks = []
         for repo in self._repos:
             task = {
@@ -85,22 +99,14 @@ class DebianBuilder(object):
             version_path = os.path.abspath(os.path.join(path, version_file))
             if os.path.exists(version_path):
                 task['data']['env_file'] = version_path
-            print task
-
             tasks.append(task)
+
         return tasks
 
     def blind_build_all(self):
         """
         Iterate through the first layer subdirectory of top_level_dir and
         if found HWIMO-BUILD, then execute the script.
-
-        It does not check the correctness of the cloned directory. 
-        If all the HWIMO-BUILD success, then return true,
-        otherwise return false
-
-        :return: True if build success.
-                 False if build failed.
         """
         try:
             tasks = self.generate_tasks()
@@ -111,6 +117,12 @@ class DebianBuilder(object):
             raise RuntimeError("Failed to build all debian packages due to \n{0}".format(e))
 
     def get_build_result(self):
+        """
+        If all the tasks success, then return true,
+        otherwise return false
+        :return: True if build success.
+                 False if build failed.
+        """
         build_result = self._builder.summarize_results()
         return build_result
 
