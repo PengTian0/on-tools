@@ -104,7 +104,7 @@ def update_rackhd_control(top_level_dir):
     updater = RackhdDebianControlUpdater(top_level_dir)
     updater.update_RackHD_control()
 
-def generate_rackhd_version_file(repo_dir, is_official_release=False):
+def generate_version_file(repo_dir, is_official_release=False):
     """
     Generate the version file for rackhd repository
     :param repo_dir: The directory of rackhd repository
@@ -179,17 +179,26 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
     Build debian packages
     """
     try:
+        # Build Debian packages of repositories except RackHD
         repos = get_build_repos(build_directory)
         repos.remove("RackHD")
+        if is_official_release:
+            for repo in repos:
+                repo_dir = os.path.join(build_directory, repo)
+                generate_version_file(repo_dir, is_official_release=is_official_release)
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
+
+        # Build Debian packages of RackHD
         repos = ["RackHD"]
         # Update the debian/control of rackhd to depends on specified version of component of raqkhd
         update_rackhd_control(build_directory)
         # Generate a file which contains the version of RackHD
-        generate_rackhd_version_file(build_directory, is_official_release=is_official_release)
+        RackHD_repo_dir = os.path.join(build_directory, "RackHD")
+        generate_version_file(RackHD_repo_dir, is_official_release=is_official_release)
         # Run HWIMO-BUILD script under each repository to build debian packages
-        run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
+        run_build_scripts(build_directory, repos, sudo_creds=sudo_creds)
+
     except Exception, e:
         print "Failed to build debian packages under {0} \ndue to {1}, Exiting now".format(build_directory, e)
         sys.exit(1)
