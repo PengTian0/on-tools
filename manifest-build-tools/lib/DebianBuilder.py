@@ -11,7 +11,6 @@ import sys
 try:
     from Builder import Builder
     from Builder import BuildCommand
-    from common import *
 except ImportError as import_err:
     print import_err
     sys.exit(1)

@@ -20,23 +20,31 @@ def strip_suffix(text, suffix):
     else:
         return text
 
-
 def strip_prefix(text, prefix):
     if text is not None and text.startswith(prefix):
         return text[len(prefix):]
     else:
         return text
 
+def write_parameters(filename, params):
+    """
+    Add/append parameters(java variable value pair) to the given parameter file.
+    If the file does not exist, then create the file.
+    :param filename: The path of the parameter file
+    :param params: the parameters dictionary
+    :return:None on success
+            Raise any error if there is any
+    """
+    if filename is None:
+        raise ValueError("parameter file name is not None")
+    with open(filename, 'w') as fp:
+        for key in params:
+            entry = "{key}={value}\n".format(key=key, value=params[key])
+            fp.write(entry)
+
 def link_dir(src, dest, dir):
     cmd_args = ["ln", "-s", src, dest]
-    proc = subprocess.Popen(cmd_args,
-                            cwd=dir,
-                            stderr=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            shell=False)
-    (out, err) = proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError("Failed to sync {0} to {1} due to {2}".format(src, dest, err))
+    run_command(cmd_args, directory=dir)
 
 def parse_property_file(filename):
     """
@@ -72,3 +80,42 @@ def parse_credential_variable(varname):
     except Exception, e:
         raise ValueError(e)
 
+def run_command(cmd_args, directory=None):
+    proc = subprocess.Popen(cmd_args,
+                            stderr=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            cwd=directory,
+                            shell=False)
+    (out, err) = proc.communicate()
+    if proc.returncode == 0:
+        return out.strip()
+    else:
+        commandline = " ".join(cmd_args)
+        raise RuntimeError("Failed to run command {0} due to {1}".format(commandline, err))
+
+def get_debian_version(file_path):
+    """
+    Get the version of a debian file
+    :param file_path: the path of the debian file
+    :return: the version of the debian file
+    """
+    cmd_args = ["dpkg-deb", "-f", file_path, "Version"]
+    debian_version = run_command(cmd_args)
+    return debian_version
+
+def get_debian_package(file_path):
+    cmd_args = ["dpkg-deb", "-f", file_path, "Package"]
+    debian_name = run_command(cmd_args)
+    return debian_name
+
+def find_specify_type_files(directory, suffix, depth=4096):
+    file_list = []
+    top_dir_depth = directory.count(os.path.sep) #How deep is at starting point
+    for root, dirs, files in os.walk(directory):
+        root_depth = root.count(os.path.sep)
+        if (root_depth - top_dir_depth) <= depth:
+            for file_itr in files:
+                if file_itr.endswith(suffix):
+                    abs_file = os.path.abspath(os.path.join(root, file_itr))
+                    file_list.append(abs_file)
+    return file_list

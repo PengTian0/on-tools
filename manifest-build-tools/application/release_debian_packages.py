@@ -3,8 +3,7 @@
 """
 This is a command line program that upload a rackhd release to bintray.
 
-./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/make-debian-release.py \
---build-directory b/ \
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/release_debian_packages.py --build-directory b/ \
 --bintray-credential BINTRAY \
 --bintray-subject rackhd \
 --bintray-repo debian \
@@ -31,7 +30,7 @@ import os
 import sys
 
 try:
-    from common import *
+    import common
 except ImportError as import_err:
     print import_err
     sys.exit(1)
@@ -43,7 +42,7 @@ class Bintray(object):
     A module of bintray
     """
     def __init__(self, creds, subject, repo, push_executable, **kwargs):
-        self._username, self._api_key = parse_credential_variable(creds)
+        self._username, self._api_key = common.parse_credential_variable(creds)
         self._subject = subject
         self._repo = repo
         self._push_executable = push_executable
@@ -78,16 +77,9 @@ class Bintray(object):
         cmd_args += ["--file_path", file_path]
 
         try:
-            proc = subprocess.Popen(cmd_args,
-                                    stderr=subprocess.PIPE,
-                                    stdout=subprocess.PIPE,
-                                    shell=False)
-            (out, err) = proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(err)
+            common.run_command(cmd_args)
         except subprocess.CalledProcessError as ex:
             raise RuntimeError("Failed to upload file {0} due to {1}".format(file_path, ex))
-
         return True
 
 def parse_args(args):
@@ -141,35 +133,6 @@ def parse_args(args):
     parsed_args = parser.parse_args(args)
     return parsed_args
 
-def get_debian_version(file_path):
-    """
-    Get the version of a debian file
-    :param file_path: the path of the debian file
-    :return: the version of the debian file
-    """
-    cmd_args = ["dpkg-deb", "-f", file_path, "Version"]
-    proc = subprocess.Popen(cmd_args,
-                            stderr=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            shell=False)
-    (out, err) = proc.communicate()
-    if proc.returncode == 0:
-        return out.strip()
-    else:
-        raise RuntimeError("Failed to parse version of {0} due to {1}".format(file_path, err))
-
-def find_deb_files(repo_dir, debian_depth):
-    debian_files = []
-    top_dir_depth = repo_dir.count(os.path.sep) #How deep is at starting point
-    for root, dirs, files in os.walk(repo_dir, topdown=True):
-        root_depth = root.count(os.path.sep)
-        if (root_depth - top_dir_depth) <= debian_depth:
-            for file_itr in files:
-                if file_itr.endswith(".deb"):
-                    abs_file = os.path.abspath(os.path.join(root, file_itr))
-                    debian_files.append(abs_file)
-    return debian_files
-
 def get_push_executable():
     repo_dir = os.path.dirname(sys.path[0])
     for suddir, dirs, files in os.walk(repo_dir):
@@ -191,12 +154,12 @@ def upload_debs(build_directory, debian_depth, bintray):
     return_dict_detail = {}
     for repo in os.listdir(build_directory):
         repo_dir = os.path.join(build_directory, repo)
-        debian_files = find_deb_files(repo_dir, debian_depth)
+        debian_files = common.find_specify_type_files(repo_dir, ".deb", depth=debian_depth)
         if len(debian_files) == 0:
             return_dict_detail[repo] = "No debians found under {dir}".format(dir=repo_dir)
 
         for file_itr in debian_files:
-            version = get_debian_version(file_itr)
+            version = common.get_debian_version(file_itr)
             upload_result = bintray.upload_a_file(repo, version, file_itr)
             if upload_result:
                 return_dict_detail[repo] = "{package} upload successfully".format(package=file_itr)

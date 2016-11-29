@@ -16,7 +16,7 @@ Usage:
 --is-official-release \
 --parameter-file downstream-files \
 --force \
---sudo-credential
+--sudo-credential SUDO_CREDS
 
 The required parameters:
 build-directory: A directory where all the repositories are cloned to. 
@@ -26,7 +26,7 @@ manifest-repo: The directory of manifest repository
 git-credential: Git URL and credential for CI services: <URL>,<Credentials>
 
 The optional parameters:
-is-official-release: If true, this release is official, the default value is false
+is-official-release: If specified, this release is official.
 parameter-file: The file with parameters. The file will be passed to downstream jobs.
 force: Use destination directory, even if it exists.
 sudo-credential: The environment variable name of sudo credentials.
@@ -62,14 +62,9 @@ def parse_args(args):
                         help="Top level directory that stores all the cloned repositories.",
                         action='store')
 
-    parser.add_argument('--manifest-repo',
+    parser.add_argument('--manifest-file',
                         required=True,
-                        help="The directory of the checked out manifest repository",
-                        action='store')
-
-    parser.add_argument('--manifest-name',
-                        required=True,
-                        help="The name of manifest file",
+                        help="The file path of manifest",
                         action='store')
 
     parser.add_argument('--parameter-file',
@@ -99,27 +94,39 @@ def parse_args(args):
                         action="store_true")
 
     parser.add_argument('--force',
-                        help="",
+                        help="Overwrite a directory even if it exists",
                         action="store_true")
 
     parsed_args = parser.parse_args(args)
     return parsed_args
 
-def update_rackhd_control(top_level_dir, manifest_repo_dir, is_official_release=False):
-    updater = RackhdDebianControlUpdater(manifest_repo_dir, top_level_dir, is_official_release=is_official_release)
+def update_rackhd_control(top_level_dir):
+    updater = RackhdDebianControlUpdater(top_level_dir)
     updater.update_RackHD_control()
 
-def generate_version_file(top_level_dir, manifest_repo_dir, is_official_release=False):
-    for repo in os.listdir(top_level_dir):
-        repo_dir = os.path.join(top_level_dir, repo)
-        version_generator = VersionGenerator(repo_dir, manifest_repo_dir)
+def generate_rackhd_version_file(repo_dir, is_official_release=False):
+    """
+    Generate the version file for rackhd repository
+    :param repo_dir: The directory of rackhd repository
+    :param is_official_release: If true, this release is official release
+    :return: True if succeed to compute version and write it into version file.
+             Otherwise, False.
+    """
+    try:
+        version_generator = VersionGenerator(repo_dir)
         version = version_generator.generate_package_version(is_official_release)
         if version != None:
             params = {}
             params['PKG_VERSION'] = version
-            version_file = "{0}.version".format(repo)
+            repo_name = os.path.basename(repo_dir)
+            version_file = "{0}.version".format(repo_name)
             version_path = os.path.join(repo_dir, version_file)
-            write_parameters(version_path, params)
+            common.write_parameters(version_path, params)
+            return True
+        else:
+            raise RuntimeError("Version of {0} is None. Maybe the repository doesn't contain debian directory ".format(repo_dir))
+    except Exception, e:
+        raise RuntimeError("Failed to generate version file for {0} \ndue to {1}".format(repo_dir, e))
 
 def run_build_scripts(top_level_dir, repos, jobs=1, sudo_creds=None):
     """
@@ -138,12 +145,12 @@ def run_build_scripts(top_level_dir, repos, jobs=1, sudo_creds=None):
         builder = DebianBuilder(top_level_dir, repos, jobs=jobs, sudo_creds=sudo_creds)
         builder.blind_build_all()
         builder.print_summary_report()
-
+        builder.print_detailed_report()
         result = builder.get_build_result()
         if result:
             print "Debian building is finished successfully."
         else:
-            builder.print_detailed_report()
+            #builder.print_detailed_report()
             print "Error found during debian building. cannot continue."
             sys.exit(2)
     except Exception, e:
@@ -160,43 +167,32 @@ def get_build_repos(directory):
     return repos
 
 def checkout_repos(manifest, builddir, force, git_credential, jobs):
-    manifest_actions = ManifestActions(manifest, builddir, force=force, git_credentials=git_credential, jobs=jobs, actions=["checkout", "packagerefs"])
-    manifest_actions.execute_actions()
-    
-def build_debian_packages(build_directory, jobs, manifest_repo, is_official_release, sudo_creds):
+    try:
+        manifest_actions = ManifestActions(manifest, builddir, force=force, git_credentials=git_credential, jobs=jobs, actions=["checkout", "packagerefs"])
+        manifest_actions.execute_actions()
+    except Exception, e:
+        print "Failed to checkout repositories according to manifest file {0} \ndue to {1}. Exiting now...".format(manifest, e)
+        sys.exit(1)
+
+def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds):
     """
     Build debian packages
     """
-    # Update the debian/control of rackhd to depends on specified version of component of raqkhd
-    update_rackhd_control(build_directory, manifest_repo, is_official_release=is_official_release)
-    # Generate a file which contains the version of repository 
-    generate_version_file(build_directory, manifest_repo, is_official_release=is_official_release)
-    repos = get_build_repos(build_directory)
-    # Run HWIMO-BUILD script under each repository to build debian packages
-    run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
-
-def write_parameters(filename, params):
-    """
-    Add/append downstream parameter (java variable value pair) to the given parameter file. 
-    If the file does not exist, then create the file.
-    :param filename: The parameter file that will be used for making environment
-                     variable for downstream job.
-    :param params: the parameters dictionary
-    :return:
-            None on success
-            Raise any error if there is any
-    """
-    if filename is None:
-        return
-
-    with open(filename, 'w') as fp:
-        try:
-            for key in params:
-                entry = "{key}={value}\n".format(key=key, value=params[key])
-                fp.write(entry)
-        except IOError:
-            print "Unable to write parameter(s) for next step(s), exit"
-            sys.exit(2)
+    try:
+        repos = get_build_repos(build_directory)
+        repos.remove("RackHD")
+        # Run HWIMO-BUILD script under each repository to build debian packages
+        run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
+        repos = ["RackHD"]
+        # Update the debian/control of rackhd to depends on specified version of component of raqkhd
+        update_rackhd_control(build_directory)
+        # Generate a file which contains the version of RackHD
+        generate_rackhd_version_file(build_directory, is_official_release=is_official_release)
+        # Run HWIMO-BUILD script under each repository to build debian packages
+        run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
+    except Exception, e:
+        print "Failed to build debian packages under {0} \ndue to {1}, Exiting now".format(build_directory, e)
+        sys.exit(1)
 
 def main():
     """
@@ -204,15 +200,8 @@ def main():
     Exit on encountering any error.
     """
     args = parse_args(sys.argv[1:])
-    
-    try:
-        manifest_path = os.path.join(args.manifest_repo, args.manifest_name)
-        checkout_repos(manifest_path, args.build_directory, args.force, args.git_credential, args.jobs)
-        build_debian_packages(args.build_directory, args.jobs, args.manifest_repo, args.is_official_release, args.sudo_credential)
-    except Exception, e:
-        traceback.print_exc()
-        print "Failed to build debian packages due to {0}".format(e)
-        sys.exit(1)
+    checkout_repos(args.manifest_file, args.build_directory, args.force, args.git_credential, args.jobs)
+    build_debian_packages(args.build_directory, args.jobs, args.is_official_release, args.sudo_credential)
 
 if __name__ == '__main__':
     main()

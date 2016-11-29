@@ -10,7 +10,7 @@ import sys
 
 try:
     from ParallelTasks import ParallelTasks
-    from common import *
+    import common
 except ImportError as import_err:
     print import_err
     sys.exit(1)
@@ -78,9 +78,9 @@ class BuildResult(object):
             detailed.append(self._command)
             if self._return_code != 0:
                 detailed.append("  ERROR: EXIT {0}".format(self._return_code))
-                if self._stdout != "":
+                if self._stdout is not None and self._stdout != "":
                     detailed.append(self._stdout)
-                if self._stderr != "":
+                if self._stderr is not None and self._stderr != "":
                     detailed.append(self._stderr)
 
         return detailed
@@ -169,7 +169,7 @@ class BuildCommand(object):
         if self._use_sudo:
             if self._sudo_creds is None:
                 raise ValueError("sudo credential missing from commands {0}".format(name))
-            (username, password) = parse_credential_variable(self._sudo_creds)
+            (username, password) = common.parse_credential_variable(self._sudo_creds)
             cmd_args += ["echo"]
             cmd_args += [password]
             cmd_args += ["|sudo -S"]
@@ -192,7 +192,7 @@ class BuildCommand(object):
                                     cwd=self._directory,
                                     shell=True)
             (out, err) = proc.communicate()
-        except subprocess.CalledProcessError as ex:
+        except Exception, ex:
             # this is a terrible failure, not just process exit != 0
             return BuildResult(self._name,
                                present=True,
@@ -250,7 +250,7 @@ class Builder(ParallelTasks):
         if not os.path.isfile(env_file):
             raise RuntimeError("Failed to initial environment due to the file {0} doesn't exist"
                                .format(env_file))
-        props = parse_property_file(env_file)
+        props = common.parse_property_file(env_file)
         if props:
             for item in props.items():
                 key = item[0]
@@ -274,7 +274,6 @@ class Builder(ParallelTasks):
             for command in data['commands']:
                 if not command.is_executable():
                     build_result = BuildResult(command, present=False)
-
                 build_result = command.run()
                 if build_result is not None:
                     results['command'].append(build_result)
@@ -303,20 +302,17 @@ class Builder(ParallelTasks):
         Generate reports with details: return code, stdout, stderr
         """
         all_detailed = []
-
         results = self.get_results()
         key_list = results.keys()
-
         for name in sorted(key_list):
             if 'command' in results[name]:
                 task_detailed = []
                 task_detailed.append("=== Results for {0} ===".format(name))
-                for result in results[name]:
+                for result in results[name]['command']:
                     detailed = result.generate_detailed_report()
                     task_detailed.extend(detailed)
 
                 all_detailed.extend(task_detailed)
-
         return all_detailed
 
     def generate_summary_report(self):
