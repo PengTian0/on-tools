@@ -181,6 +181,7 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
     """
     try:
         # Build Debian packages of repositories except RackHD
+        '''
         repos = get_build_repos(build_directory)
         repos.remove("RackHD")
         if is_official_release:
@@ -189,6 +190,7 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
                 generate_version_file(repo_dir, is_official_release=is_official_release)
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
+        '''
 
         # Build Debian packages of RackHD
         repos = ["RackHD"]
@@ -204,14 +206,33 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
         print "Failed to build debian packages under {0} \ndue to {1}, Exiting now".format(build_directory, e)
         sys.exit(1)
 
+def write_downstream_parameter_file(build_directory, is_official_release, parameter_file):
+    try:
+        params = {}
+
+        # Add rackhd version to downstream parameters
+        rackhd_repo_dir = os.path.join(build_directory, "RackHD")
+        version_generator = VersionGenerator(rackhd_repo_dir)
+        rackhd_version = version_generator.generate_package_version(is_official_release)
+        if rackhd_version != None:
+            params['RACKHD_VERSION'] = rackhd_version
+        else:
+            raise RuntimeError("Version of {0} is None. Maybe the repository doesn't contain debian directory ".format(rackhd_repo_dir))
+
+        # Write downstream parameters to downstream parameter file.
+        common.write_parameters(parameter_file, params)
+    except Exception, e:
+        raise RuntimeError("Failed to generate version file for {0} \ndue to {1}".format(repo_dir, e))
+
 def main():
     """
     Build all the debians.
     Exit on encountering any error.
     """
     args = parse_args(sys.argv[1:])
-    checkout_repos(args.manifest_file, args.build_directory, args.force, args.git_credential, args.jobs)
+    #checkout_repos(args.manifest_file, args.build_directory, args.force, args.git_credential, args.jobs)
     build_debian_packages(args.build_directory, args.jobs, args.is_official_release, args.sudo_credential)
+    write_downstream_parameter_file(args.build_directory, args.is_official_release, args.parameter_file)
 
 if __name__ == '__main__':
     main()
