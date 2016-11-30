@@ -135,10 +135,10 @@ def parse_args(args):
 
 def get_push_executable():
     repo_dir = os.path.dirname(sys.path[0])
-    for suddir, dirs, files in os.walk(repo_dir):
+    for subdir, dirs, files in os.walk(repo_dir):
         for file in files:
             if file == push_exe_script:
-                return os.path.abspath(file)
+                return os.path.join(subdir, file)
     return None
 
 def upload_debs(build_directory, debian_depth, bintray):
