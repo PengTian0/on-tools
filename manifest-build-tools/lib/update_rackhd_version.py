@@ -94,7 +94,6 @@ class RackhdDebianControlUpdater(object):
         for repo in os.listdir(self._builddir):
             repo_dir = os.path.join(self._builddir, repo)
             debian_files = common.find_specify_type_files(repo_dir, ".deb")
-            print debian_files
             for debian_file in debian_files:
                 package_name = common.get_debian_package(debian_file)
                 version = common.get_debian_version(debian_file)
@@ -111,7 +110,6 @@ class RackhdDebianControlUpdater(object):
             rackhd_dir = os.path.join(self._builddir, "RackHD")
             debian_dir = os.path.join(rackhd_dir, "debian")
             version_dict = self._generate_version_dict()
-            print version_dict
             self._update_dependency(debian_dir, version_dict)
         except Exception, e:
             print "Failed to update RackHD/debian/control due to {0}".format(e)
