@@ -47,6 +47,7 @@ try:
     from update_rackhd_version import RackhdDebianControlUpdater
     from version_generator import VersionGenerator
     from DebianBuilder import DebianBuilder
+    import common
 except ImportError as import_err:
     print import_err
     sys.exit(1)
