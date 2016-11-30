@@ -78,7 +78,7 @@ class Bintray(object):
 
         try:
             common.run_command(cmd_args)
-        except subprocess.CalledProcessError as ex:
+        except Exception, ex:
             raise RuntimeError("Failed to upload file {0} due to {1}".format(file_path, ex))
         return True
 

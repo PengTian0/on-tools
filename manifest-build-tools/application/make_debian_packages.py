@@ -181,7 +181,6 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
     """
     try:
         # Build Debian packages of repositories except RackHD
-        '''
         repos = get_build_repos(build_directory)
         repos.remove("RackHD")
         if is_official_release:
@@ -190,7 +189,6 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
                 generate_version_file(repo_dir, is_official_release=is_official_release)
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
-        '''
 
         # Build Debian packages of RackHD
         repos = ["RackHD"]
@@ -230,7 +228,7 @@ def main():
     Exit on encountering any error.
     """
     args = parse_args(sys.argv[1:])
-    #checkout_repos(args.manifest_file, args.build_directory, args.force, args.git_credential, args.jobs)
+    checkout_repos(args.manifest_file, args.build_directory, args.force, args.git_credential, args.jobs)
     build_debian_packages(args.build_directory, args.jobs, args.is_official_release, args.sudo_credential)
     write_downstream_parameter_file(args.build_directory, args.is_official_release, args.parameter_file)
 
