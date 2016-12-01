@@ -6,9 +6,9 @@ The script compute the version of a package, just like:
 1.1-1-20161129UTC
 
 usage:
-./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/version_generator.py 
---repo-dir /home/onrack/rackhd/release/rackhd-repos/PengTian0/b/b/on-http
---is-official-release
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/version_generator.py \
+--repo-dir /home/onrack/rackhd/release/rackhd-repos/PengTian0/b/b/on-http \
+--is-official-release true
 
 Because this script need to import scripts under lib.
 The script HWIMO-BUILD helps to add the scripts under lib to python path.
@@ -17,7 +17,7 @@ The required parameters:
 repo-dir: the directory of the repository
 
 The optional parameters:
-is-official-release (default value is false)
+is-official-release: whether the release is official (default value is false)
 """
 import os
 import sys
@@ -86,7 +86,7 @@ class VersionGenerator(object):
                     for debianstatic_filename in os.listdir(debianstatic_dir):
                         if debianstatic_filename == repo_name:
                             debianstatic_repo_dir = "debianstatic/{0}".format(repo_name)
-                            link_dir(debianstatic_repo_dir, "debian", self._repo_dir)
+                            common.link_dir(debianstatic_repo_dir, "debian", self._repo_dir)
                             linked = True
         if not debian_exist and not linked:
             return None
@@ -120,7 +120,7 @@ class VersionGenerator(object):
         """
         big_version = self.generate_big_version()
         if big_version is None:
-            logging.warning("Failed to generate big version, maybe the {0} doesn't contain debian directory".format(self._repo_dir))
+            common.logging.warning("Failed to generate big version, maybe the {0} doesn't contain debian directory".format(self._repo_dir))
             return None
 
         if is_official_release:
@@ -146,9 +146,10 @@ def parse_command_line(args):
                         action="store")
 
     parser.add_argument("--is-official-release",
+                        type=bool,
                         default=False,
-                        help="This release if official",
-                        action="store_true")
+                        help="whether this release is official",
+                        action="store")
 
     parsed_args = parser.parse_args(args)
     return parsed_args
@@ -161,7 +162,7 @@ def main():
         version = generator.generate_package_version(args.is_official_release)
         print version
     except Exception, e:
-        logging.error("Failed to generate version for {0} due to {1}\n Exiting now".format(args.repo_dir, e))
+        common.logging.error("Failed to generate version for {0} due to {1}\n Exiting now".format(args.repo_dir, e))
         sys.exit(1)
 
 if __name__ == "__main__":

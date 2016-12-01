@@ -13,7 +13,7 @@ Usage:
 --manifest-repo build-manifests/ \
 --git-credential https://github.com,GITHUB \
 --jobs 8 \
---is-official-release \
+--is-official-release true\
 --parameter-file downstream-files \
 --force \
 --sudo-credential SUDO_CREDS
@@ -26,7 +26,7 @@ manifest-repo: The directory of manifest repository
 git-credential: Git URL and credential for CI services: <URL>,<Credentials>
 
 The optional parameters:
-is-official-release: If specified, this release is official.
+is-official-release: Whether this release is official. The default value is False
 parameter-file: The file with parameters. The file will be passed to downstream jobs.
 force: Use destination directory, even if it exists.
 sudo-credential: The environment variable name of sudo credentials.
@@ -91,8 +91,10 @@ def parse_args(args):
                         action="store")
 
     parser.add_argument('--is-official-release',
-                        help="True if this release is official",
-                        action="store_true")
+                        type=bool,
+                        default=False,
+                        help="Whether this release is official",
+                        action="store")
 
     parser.add_argument('--force',
                         help="Overwrite a directory even if it exists",
@@ -124,8 +126,6 @@ def generate_version_file(repo_dir, is_official_release=False):
             version_path = os.path.join(repo_dir, version_file)
             common.write_parameters(version_path, params)
             return True
-        else:
-            raise RuntimeError("Version of {0} is None. Maybe the repository doesn't contain debian directory ".format(repo_dir))
     except Exception, e:
         raise RuntimeError("Failed to generate version file for {0} \ndue to {1}".format(repo_dir, e))
 
