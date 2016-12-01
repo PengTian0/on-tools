@@ -93,21 +93,6 @@ def run_command(cmd_args, directory=None):
         commandline = " ".join(cmd_args)
         raise RuntimeError("Failed to run command {0} due to {1}".format(commandline, err))
 
-def get_debian_version(file_path):
-    """
-    Get the version of a debian file
-    :param file_path: the path of the debian file
-    :return: the version of the debian file
-    """
-    cmd_args = ["dpkg-deb", "-f", file_path, "Version"]
-    debian_version = run_command(cmd_args)
-    return debian_version
-
-def get_debian_package(file_path):
-    cmd_args = ["dpkg-deb", "-f", file_path, "Package"]
-    debian_name = run_command(cmd_args)
-    return debian_name
-
 def find_specify_type_files(directory, suffix, depth=4096):
     file_list = []
     top_dir_depth = directory.count(os.path.sep) #How deep is at starting point
@@ -119,3 +104,10 @@ def find_specify_type_files(directory, suffix, depth=4096):
                     abs_file = os.path.abspath(os.path.join(root, file_itr))
                     file_list.append(abs_file)
     return file_list
+
+def str2bool(string):
+    if string.lower() in ("true", "yes", "t", "1"):
+        return True
+    else:
+        return False
+

@@ -166,19 +166,20 @@ def parse_command_line(args):
                         help="Git credentials for CI services",
                         action="append")
 
-    parser.add_argument("--is-official-release",
-                        default=False,
-                        type=bool,
-                        help="whether this release is official",
-                        action="store")
-
     parser.add_argument('--jobs',
                         help="Number of build jobs to run in parallel",
                         default=-1,
                         type=int,
                         action="store")
 
+    parser.add_argument('--is-official-release',
+                        default="false",
+                        help="Whether this release is official",
+                        action="store")
+
     parsed_args = parser.parse_args(args)
+    parsed_args.is_official_release = common.str2bool(parsed_args.is_official_release)
+
     return parsed_args
 
 def checkout_repos(manifest, builddir, force, git_credential, jobs):

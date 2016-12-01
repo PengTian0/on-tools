@@ -156,18 +156,19 @@ def parse_command_line(args):
                         help="the directory of repository",
                         action="store")
 
-    parser.add_argument("--is-official-release",
-                        type=bool,
-                        default=False,
-                        help="whether this release is official",
+    parser.add_argument('--is-official-release',
+                        default="false",
+                        help="Whether this release is official",
                         action="store")
 
     parsed_args = parser.parse_args(args)
+    parsed_args.is_official_release = common.str2bool(parsed_args.is_official_release)
     return parsed_args
 
 def main():
     # parse arguments
     args = parse_command_line(sys.argv[1:])
+    print args.is_official_release
     generator = VersionGenerator(args.repo_dir)
     try:
         version = generator.generate_package_version(args.is_official_release)

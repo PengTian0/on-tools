@@ -41,6 +41,7 @@ import os
 import sys
 import json
 import traceback
+import types
 
 try:
     from reprove import ManifestActions
@@ -91,8 +92,7 @@ def parse_args(args):
                         action="store")
 
     parser.add_argument('--is-official-release',
-                        type=bool,
-                        default=False,
+                        default="false",
                         help="Whether this release is official",
                         action="store")
 
@@ -101,6 +101,7 @@ def parse_args(args):
                         action="store_true")
 
     parsed_args = parser.parse_args(args)
+    parsed_args.is_official_release = common.str2bool(parsed_args.is_official_release)
     return parsed_args
 
 def update_rackhd_control(top_level_dir, is_official_release):
