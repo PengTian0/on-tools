@@ -103,11 +103,11 @@ def parse_args(args):
     parsed_args = parser.parse_args(args)
     return parsed_args
 
-def update_rackhd_control(top_level_dir):
-    updater = RackhdDebianControlUpdater(top_level_dir)
+def update_rackhd_control(top_level_dir, is_official_release):
+    updater = RackhdDebianControlUpdater(top_level_dir, is_official_release)
     updater.update_RackHD_control()
 
-def generate_version_file(repo_dir, is_official_release=False):
+def generate_version_file(repo_dir, is_official_release):
     """
     Generate the version file for rackhd repository
     :param repo_dir: The directory of rackhd repository
@@ -180,23 +180,20 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
     Build debian packages
     """
     try:
-        # Build Debian packages of repositories except RackHD
         repos = get_build_repos(build_directory)
+        for repo in repos:
+            repo_dir = os.path.join(build_directory, repo)
+            generate_version_file(repo_dir, is_official_release)
+
+        # Build Debian packages of repositories except RackHD
         repos.remove("RackHD")
-        if is_official_release:
-            for repo in repos:
-                repo_dir = os.path.join(build_directory, repo)
-                generate_version_file(repo_dir, is_official_release=is_official_release)
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
 
-        # Build Debian packages of RackHD
+        # If on-xxx.deb build successfully, build Debian packages of RackHD
         repos = ["RackHD"]
         # Update the debian/control of rackhd to depends on specified version of component of raqkhd
-        update_rackhd_control(build_directory)
-        # Generate a file which contains the version of RackHD
-        RackHD_repo_dir = os.path.join(build_directory, "RackHD")
-        generate_version_file(RackHD_repo_dir, is_official_release=is_official_release)
+        update_rackhd_control(build_directory, is_official_release)
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, sudo_creds=sudo_creds)
 

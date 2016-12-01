@@ -1,28 +1,52 @@
-# Copyright 2016, EMC, Inc.
+#!/usr/bin/env python
+# Copyright 2016, DELLEMC, Inc.
+
 """
-A module that contains the tool to update the debian/control
-based on debian files under a directory.
-It assumes that the repositories under the directory are cloned successfully 
-and run the scripts HWIMO-BUILD successfully.
+usage:
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/update_rackhd_version.py \
+--manifest rackhd-devel \
+--builddir b \
+--force \
+--git-credential https://github.com/PengTian0,GITHUB \
+--jobs 8
+                     
+The required parameters:
+manifest-repo-dir: The directory of manifest repository.
+manifest-name: The name of manifest file.
+builddir: The destination for repositories in manifest stored.
+          Repositories under the directory include on-xxx and RackHD
+git-credential: url, credentials pair for the access to github repos
+The optional parameter:
+force: Overwrite the build directory if it exists.
+is-official-release: if true, this release is official, the default value is false
+jobs: number of parallel jobs to run(checkout repositories). The number is related to the compute architecture, multi-core processors...
 """
+import argparse
 import sys
 import os
 import deb822
 
 try:
+    from reprove import ManifestActions
+    from version_generator import VersionGenerator
     import common
 except ImportError as import_err:
     print import_err
     sys.exit(1)
 
 class RackhdDebianControlUpdater(object):
-    def __init__(self, builddir):
+    def __init__(self, builddir, is_official_release=False):
         """
+        Compute the version of each repository under builddir
+        and update the debian/control with these versions
+        __manifest_repo_dir - The directory of Repository manifest
         __builddir - Destination for checked out repositories
+        __is_official_release - True if the official is official release
         :return: None
         """
         self._builddir = builddir
-        
+        self._is_official_release = is_official_release
+
     def _get_control_depends(self, control_path):
         """
         Parse debian control file
@@ -52,7 +76,9 @@ class RackhdDebianControlUpdater(object):
 
         new_control = os.path.join(debian_dir, "control_new")
         new_control_fp = open(new_control , "wb")
+
         packages = self._get_control_depends(control)
+
         with open(control) as fp:
             package_count = 0
             is_depends = False
@@ -93,17 +119,16 @@ class RackhdDebianControlUpdater(object):
         version_dict = {}
         for repo in os.listdir(self._builddir):
             repo_dir = os.path.join(self._builddir, repo)
-            debian_files = common.find_specify_type_files(repo_dir, ".deb")
-            for debian_file in debian_files:
-                package_name = common.get_debian_package(debian_file)
-                version = common.get_debian_version(debian_file)
+            version_generator = VersionGenerator(repo_dir)
+            version = version_generator.generate_package_version(self._is_official_release)
+            if version != None:
                 version_dict[repo] = version
 
         return version_dict
 
     def update_RackHD_control(self):
         """
-        udpate RackHD/debian/control based on debian files under builddir
+        udpate RackHD/debian/control according to manifest
         :return: None     
         """
         try:
@@ -115,3 +140,65 @@ class RackhdDebianControlUpdater(object):
             print "Failed to update RackHD/debian/control due to {0}".format(e)
             sys.exit(1)
 
+   
+def parse_command_line(args):
+    """
+    Parse script arguments.
+    :return: Parsed args for assignment
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest",
+                        required=True,
+                        help="the path of manifest file",
+                        action="store")
+    
+    parser.add_argument("--builddir",
+                        required=True,
+                        help="destination for checked out repositories",
+                        action="store")
+
+    parser.add_argument("--force",
+                        help="use destination dir, even if it exists",
+                        action="store_true")
+
+    parser.add_argument("--git-credential",
+                        required=True,
+                        help="Git credentials for CI services",
+                        action="append")
+
+    parser.add_argument("--is-official-release",
+                        default=False,
+                        type=bool,
+                        help="whether this release is official",
+                        action="store")
+
+    parser.add_argument('--jobs',
+                        help="Number of build jobs to run in parallel",
+                        default=-1,
+                        type=int,
+                        action="store")
+
+    parsed_args = parser.parse_args(args)
+    return parsed_args
+
+def checkout_repos(manifest, builddir, force, git_credential, jobs):
+    manifest_actions = ManifestActions(manifest, builddir, force=force, git_credentials=git_credential, jobs=jobs, actions=["checkout"])
+    manifest_actions.execute_actions()
+
+def main():
+    # Parse arguments
+    args = parse_command_line(sys.argv[1:])
+
+    # Checkout repositories according to manifest file
+    checkout_repos(args.manifest, args.builddir, args.force, args.git_credential, args.jobs)
+
+    # Start to initial an instance of UpdateRackhdVersion
+    updater = RackhdDebianControlUpdater(args.builddir, is_official_release=args.is_official_release)
+
+    # Update the RackHD/debian/control according to manifest
+    updater.update_RackHD_control()
+
+
+if __name__ == "__main__":
+    main()
+    sys.exit(0)

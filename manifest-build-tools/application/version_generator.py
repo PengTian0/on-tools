@@ -43,17 +43,30 @@ class VersionGenerator(object):
         """
         self._repo_dir = repo_dir
         self.repo_operator = RepoOperator()
- 
+        self._repo_name = self.get_repo_name()
+
+    def get_repo_name(self):
+        repo_url = self.repo_operator.get_repo_url(self._repo_dir)
+        repo_name = common.strip_suffix(os.path.basename(repo_url), ".git")
+        return repo_name
+
     def generate_small_version(self):
         """
         Generate the small version which consists of commit date and commit hash of manifest repository
         According to small version, users can track the commit of all repositories in manifest file
         return: small version 
         """
-        utc_now = datetime.utcnow()
-        utc_yesterday = utc_now + timedelta(days=-1)
-        version = utc_yesterday.strftime('%Y%m%dUTC')
-        return version
+        if self._repo_name == "RackHD":
+            utc_now = datetime.utcnow()
+            utc_yesterday = utc_now + timedelta(days=-1)
+            version = utc_yesterday.strftime('%Y%m%dUTC')
+            return version
+        else:
+            commit_timestamp_str = self.repo_operator.get_lastest_commit_date(self._repo_dir)
+            date = datetime.utcfromtimestamp(int(commit_timestamp_str)).strftime('%Y%m%d%H%M%SZ')
+            commit_id = self.repo_operator.get_lastest_commit_id(self._repo_dir)
+            version = "{date}-{commit}".format(date=date, commit=commit_id[0:7])
+            return version
 
     def debian_exist(self):
         """
@@ -73,8 +86,6 @@ class VersionGenerator(object):
         The big version is the latest version of debian/changelog
         return: big version
         """
-        repo_url = self.repo_operator.get_repo_url(self._repo_dir)
-        repo_name = common.strip_suffix(os.path.basename(repo_url), ".git")
         # If the repository has the debianstatic/repository name/,
         # create a soft link to debian before compute version
         debian_exist = self.debian_exist()
@@ -84,8 +95,8 @@ class VersionGenerator(object):
                 if filename == "debianstatic":
                     debianstatic_dir = os.path.join(self._repo_dir, "debianstatic")
                     for debianstatic_filename in os.listdir(debianstatic_dir):
-                        if debianstatic_filename == repo_name:
-                            debianstatic_repo_dir = "debianstatic/{0}".format(repo_name)
+                        if debianstatic_filename == self._repo_name:
+                            debianstatic_repo_dir = "debianstatic/{0}".format(self._repo_name)
                             common.link_dir(debianstatic_repo_dir, "debian", self._repo_dir)
                             linked = True
         if not debian_exist and not linked:
