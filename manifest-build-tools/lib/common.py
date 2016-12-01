@@ -46,6 +46,21 @@ def link_dir(src, dest, dir):
     cmd_args = ["ln", "-s", src, dest]
     run_command(cmd_args, directory=dir)
 
+def get_debian_version(file_path):
+    """
+    Get the version of a debian file
+    :param file_path: the path of the debian file
+    :return: the version of the debian file
+    """
+    cmd_args = ["dpkg-deb", "-f", file_path, "Version"]
+    debian_version = run_command(cmd_args)
+    return debian_version
+
+def get_debian_package(file_path):
+    cmd_args = ["dpkg-deb", "-f", file_path, "Package"]
+    debian_name = run_command(cmd_args)
+    return debian_name
+
 def parse_property_file(filename):
     """
     parse java properties file
