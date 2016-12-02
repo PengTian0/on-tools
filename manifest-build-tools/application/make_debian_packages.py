@@ -187,8 +187,7 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
             generate_version_file(repo_dir, is_official_release)
 
         # Build Debian packages of repositories except RackHD
-        #repos.remove("RackHD")
-        repos = ["on-tftp", "on-imagebuilder"]
+        repos.remove("RackHD")
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
 
