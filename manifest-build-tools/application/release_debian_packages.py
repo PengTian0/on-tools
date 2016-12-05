@@ -160,7 +160,8 @@ def upload_debs(build_directory, debian_depth, bintray):
 
         for file_itr in debian_files:
             version = common.get_debian_version(file_itr)
-            upload_result = bintray.upload_a_file(repo, version, file_itr)
+            package = common.get_debian_package(file_itr)
+            upload_result = bintray.upload_a_file(package, version, file_itr)
             if upload_result:
                 return_dict_detail[repo] = "{package} upload successfully".format(package=file_itr)
             else:
