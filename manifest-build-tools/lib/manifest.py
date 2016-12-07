@@ -12,7 +12,7 @@ import config
 
 from gitbits import GitBit
 
-
+manifest_sample = "manifest.json"
 class Manifest(object):
     def __init__(self, file_path, git_credentials = None):
         """
@@ -45,6 +45,16 @@ class Manifest(object):
 
         self.read_manifest_file(self._file_path)
         self.parse_manifest()
+
+    @staticmethod
+    def instance_of_sample():
+        repo_dir = os.path.dirname(sys.path[0])
+        for subdir, dirs, files in os.walk(repo_dir):
+            for file in files:
+                if file == manifest_sample:
+                    manifest = Manifest(os.path.join(subdir, file))
+                    return manifest
+        return None
 
     def set_git_credentials(self, git_credentials):
         self._git_credentials = git_credentials
@@ -147,16 +157,16 @@ class Manifest(object):
         for repo in repositories:
             valid = True
             # repository url is required
-            if 'repository' not in repo:
+            if 'repository' not in repo or repo['repository'] == "":
                 valid = False
                 message.append("entry without tag repository")
 
             # either branch or commit-id should be set.
-            if 'branch' not in repo and \
-               'commit-id' not in repo:
+            if ('branch' not in repo or repo['branch'] == "") and \
+               ('commit-id' not in repo or repo['commit-id'] == ""):
                 valid = False
                 message.append("Either branch or commit-id should be set for entry")
-
+            
             if not valid:
                 result = False
                 message.append("entry content:")
@@ -177,7 +187,7 @@ class Manifest(object):
         for job in downstream_jobs:
             valid = True
             # repository url is required
-            if 'repository' not in job:
+            if 'repository' not in job or job['repository'] == "":
                 valid = False
                 message.append("entry without tag repository")
 
@@ -197,8 +207,8 @@ class Manifest(object):
                 message.append("entry without tag running-label")
 
             # either branch or commit-id should be set.
-            if 'branch' not in job and \
-               'commit-id' not in job:
+            if ('branch' not in job or job['branch'] == "") and \
+               ('commit-id' not in job or job['commit-id'] == ""):
                 valid = False
                 message.append("Either commit-id or branch should be set for job repository")
 
