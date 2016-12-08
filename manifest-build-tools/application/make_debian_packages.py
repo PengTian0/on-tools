@@ -40,8 +40,6 @@ import argparse
 import os
 import sys
 import json
-import traceback
-import types
 
 try:
     from reprove import ManifestActions
@@ -105,6 +103,13 @@ def parse_args(args):
     return parsed_args
 
 def update_rackhd_control(top_level_dir, is_official_release):
+    """
+    Update the rackhd/debian/control with the version of on-xxx.deb under $top_level_dir.
+    :param top_level_dir: Top level directory that stores all the
+                          cloned repositories.
+    :param is_official_release: If true, this release is official release
+    :return: None
+    """
     updater = RackhdDebianControlUpdater(top_level_dir, is_official_release)
     updater.update_RackHD_control()
 
@@ -188,7 +193,6 @@ def build_debian_packages(build_directory, jobs, is_official_release, sudo_creds
 
         # Build Debian packages of repositories except RackHD
         repos.remove("RackHD")
-        repos.remove("on-imagebuilder")
         # Run HWIMO-BUILD script under each repository to build debian packages
         run_build_scripts(build_directory, repos, jobs=jobs, sudo_creds=sudo_creds)
 
