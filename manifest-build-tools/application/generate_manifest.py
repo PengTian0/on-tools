@@ -1,34 +1,35 @@
 #!/usr/bin/env python
-# Copyright 2015-2016, EMC, Inc.
+# Copyright 2016, DELLEMC, Inc.
 
 """
 The script generate a new manifest for a new branch according to another manifest
 
 usage:
-./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/manifest_generator.py \
---branch branch/release-1.2.5 \
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/generate_manifest.py \
+--branch master \
+--date "$date" \
+--builddir b \
 --force \
 --git-credential https://github.com,GITHUB \
---builddir b \
 --jobs 8
 
 The required parameters: 
-dest-manifest: The path of the new manifest
-branch: The new branch name
+branch: The branch name of each repository in manifest file.
+date: The commit of each repository are last commit before the date.
+      The valid date: current (the commit of each repository are the lastest commit")
+                      yesterday (the commit of each repository are the last commit of yesterday")
+                      date string, such as: 2016-12-01 00:00:00 (the commit of each repository are the last commit before the date")
+
 git-credential: Git credentials for CI services.
 builddir: The directory for checked repositories.
 
 The optional parameters:
 force: If true, overwrite the destination manifest file even it already exists.
-publish: If true, the script will try to push the new manifest to github. 
-         That means the dest manifest should under a repository, otherwise, the publish action will fail
-publish-branch: The new manifest will be pushed to the branch.
 jobs: number of parallel jobs to run. The number is related to the compute architecture, multi-core processors...
 """
 import os
 import sys
 import argparse
-import traceback
 from dateutil.parser import parse
 from datetime import datetime,timedelta
 
@@ -49,28 +50,30 @@ def parse_command_line(args):
                         required=True,
                         help="The branch of repositories in new manifest",
                         action="store")
-    parser.add_argument("--force",
-                        help="use destination manifest file, even if it exists",
-                        action="store_true")
-    parser.add_argument("--builddir",
-                        required=True,
-                        help="destination for checked out repositories",
-                        action="store")
-
-    parser.add_argument("--git-credential",
-                        help="Git credential for CI services",
-                        action="append")
-
-    parser.add_argument("--jobs",
-                        default=1,
-                        help="Number of parallel jobs to run",
-                        type=int)
 
     parser.add_argument("--date",
                          default="current",
                          required=True,
                          help="Generate a new manifest with commit before the date, such as: current, yesterday, 2016-12-13 00:00:00",
                          action="store")
+
+    parser.add_argument("--builddir",
+                        required=True,
+                        help="destination for checked out repositories",
+                        action="store")
+
+    parser.add_argument("--git-credential",
+                        required=True,
+                        help="Git credential for CI services",
+                        action="append")
+
+    parser.add_argument("--force",
+                        help="use destination manifest file, even if it exists",
+                        action="store_true")
+    parser.add_argument("--jobs",
+                        default=1,
+                        help="Number of parallel jobs to run",
+                        type=int)
 
     parsed_args = parser.parse_args(args)
     return parsed_args
@@ -109,7 +112,6 @@ def main():
         generator.update_manifest()
         generator.generate_manifest()
     except Exception, e:
-        traceback.print_exc()
         print "Failed to generate new manifest for {0} due to \n{1}\nExiting now".format(args.branch, e)
         sys.exit(1)
 
