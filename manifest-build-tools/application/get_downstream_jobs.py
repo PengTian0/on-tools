@@ -13,6 +13,8 @@ import requests
 import os
 import sys
 import argparse
+import re
+
 try:
     import common
 except ImportError as import_err:
@@ -90,7 +92,11 @@ def main():
     args = parse_args(sys.argv[1:])
     try:
         sub_builds = get_sub_builds(args.build_url, args.jenkins_url)
-        common.write_parameters(args.parameter_file, sub_builds)
+        parameters = {}
+        for key, value in sub_builds.items():
+            job_name = re.sub(r'[\W_]+', '_', key)
+            parameters[job_name] = value
+        common.write_parameters(args.parameter_file, parameters)
     except Exception as e:
         print e
         sys.exit(1)
