@@ -2,10 +2,19 @@
 # Copyright 2016, DELLEMC, Inc.
 
 '''
+The script get name and build number of all the downstream jobs of a jenkins job.
 Usage:
 python get_downstream_jobs.py \
---jenkins_url http://rackhdci.lss.emc.com \
---build_url http://rackhdci.lss.emc.com/job/on-core/851/
+--jenkins-url http://rackhdci.lss.emc.com \
+--build-url http://rackhdci.lss.emc.com/job/on-core/851/ \
+--parameter-file downstream-files
+
+The required parameters:
+jenkins-url: the URL of jenkins server
+build-url: the build URL of the job, such as http://rackhdci.lss.emc.com/job/on-core/851/.
+
+The optional parameters: 
+parameter-file: The file with parameters. The file will be passed to downstream jobs.
 '''
 
 import json
@@ -92,6 +101,11 @@ def main():
     args = parse_args(sys.argv[1:])
     try:
         sub_builds = get_sub_builds(args.build_url, args.jenkins_url)
+        
+        # Replace the special character of job name with _
+        # Because these parameters are going to used as linux environment variables 
+        # whose variable name may permit some characters which are allowed in jenkins job name,
+        # such as: white space, -, ..
         parameters = {}
         for key, value in sub_builds.items():
             job_name = re.sub(r'[\W_]+', '_', key)
