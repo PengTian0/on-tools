@@ -168,7 +168,6 @@ def parse_command_line(args):
 def main():
     # parse arguments
     args = parse_command_line(sys.argv[1:])
-    print args.is_official_release
     generator = VersionGenerator(args.repo_dir)
     try:
         version = generator.generate_package_version(args.is_official_release)

@@ -330,7 +330,6 @@ class Manifest(object):
         """
         update the instance of the class based on member:
         _downstream_jobs and provided arguments.
-
         :param downstream_jobs: the entry downstream_jobs
         :param repo_url: the url of the repository
         :param branch: the branch of the repository
@@ -354,7 +353,6 @@ class Manifest(object):
         """
         update the instance of the class based on member:
         _repositories and provided arguments.
-
         :param repositories: the entry repositories
         :param repo_url: the url of the repository
         :param branch: the branch of the repository
