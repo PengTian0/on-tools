@@ -3,16 +3,16 @@
 
 """
 usage:
-./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/update_rackhd_version.py \
+./on-tools/manifest-build-tools/HWIMO-BUILD on-tools/manifest-build-tools/application/update_dependencies.py \
 --manifest rackhd-devel \
 --builddir b \
 --force \
 --git-credential https://github.com/PengTian0,GITHUB \
---jobs 8
+--jobs 8 \
+--is-official-release true/false
                      
 The required parameters:
-manifest-repo-dir: The directory of manifest repository.
-manifest-name: The name of manifest file.
+manifest: The file path of manifest.
 builddir: The destination for repositories in manifest stored.
           Repositories under the directory include on-xxx and RackHD
 git-credential: url, credentials pair for the access to github repos

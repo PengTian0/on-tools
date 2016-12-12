@@ -43,7 +43,7 @@ import json
 
 try:
     from reprove import ManifestActions
-    from update_rackhd_version import RackhdDebianControlUpdater
+    from update_dependencies import RackhdDebianControlUpdater
     from version_generator import VersionGenerator
     from DebianBuilder import DebianBuilder
     import common
