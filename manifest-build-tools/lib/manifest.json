@@ -51,12 +51,12 @@
         {
             "branch": "", 
             "commit-id": "",
-            "repository": "https://github.com/RackHD/RackHD.git"
+            "repository": "https://github.com/PengTian0/RackHD.git"
         }, 
         {
             "branch": "", 
             "commit-id": "",
-            "repository": "https://github.com/RackHD/on-imagebuilder.git"
+            "repository": "https://github.com/PengTian0/on-imagebuilder.git"
         },
         {
             "branch": "", 
